@@ -1,38 +1,46 @@
 using Ogs.Telemetry;
 using CapnpGen;
 
-// Reference receiver: joins the multicast group, merges discovery pages
-// (printing each generation once it is complete), prints motion throttled,
-// and runs conformance checks on every frame.
+// Reference receiver: joins the multicast group, tells senders apart by
+// source address and port (implementation-udp.md § Senders and sessions),
+// merges each sender's discovery pages (printing each generation once it is
+// complete), prints motion throttled, and runs conformance checks on every
+// frame.
 
 using var receiver = new TelemetryReceiver();
 var printedDiscovery = false;
 long motionSeen = 0;
 var motionPerObject = new Dictionary<string, long>();
 long violations = 0;
-var seenEventIds = new HashSet<uint>();
-// paged discovery merges by generation (implementation-udp.md § Paged discovery)
-var tables = new DescriptorTables();
-var printedGenerations = new HashSet<uint>();
+var seenEventIds = new HashSet<(System.Net.IPEndPoint, uint)>();
+// one tracker: per-sender descriptor tables, each merging paged discovery by
+// generation (implementation-udp.md § Paged discovery)
+var sessions = new SessionTracker();
+sessions.SessionStarted += s => Console.WriteLine(
+    $"Session: {s} from {s.Source} start={s.SessionStartUnixUs}" +
+    (sessions.Sessions.Count > 1 ? $" ({sessions.Sessions.Count} sessions; following {sessions.Selected})" : ""));
+sessions.SessionEnded += s => Console.WriteLine($"Session ended: {s}");
+var printedGenerations = new HashSet<(System.Net.IPEndPoint, uint)>();
 long deduped = 0;
 // session gravity from the latest discovery (CONVENTIONS, Gravity);
 // standard gravity until the first discovery arrives
 var sessionGravity = new System.Numerics.Vector3(0f, -9.80665f, 0f);
 
-receiver.DiscoveryReceived += d =>
+receiver.DiscoveryReceivedFrom += (source, d) =>
 {
     if (d.SchemaVersion != 1) Warn($"schemaVersion {d.SchemaVersion} != 1 (attempting anyway)");
     if (d.PageCount > 1 && d.Page >= d.PageCount) Warn($"page {d.Page} of {d.PageCount}");
-    var generation = tables.Apply(d);
+    var generation = sessions.OnDiscovery(source, d).Tables.Current!;
     // the primary object is declared on the first page listing it; check
     // once the generation is complete, and print it then (once)
-    if (!generation.Complete || !printedGenerations.Add(generation.Number)) return;
+    if (!generation.Complete || !printedGenerations.Add((source, generation.Number))) return;
     if (!generation.Objects.Values.Any(o => o.Primary)) Warn("no primary object in discovery");
     sessionGravity = Gravity.Session(d.Environment);
     if (d.Environment.which == CapnpGen.Environment.WHICH.GravityVector &&
         MathF.Abs(sessionGravity.Length() - d.Environment.Gravity) > 1e-3f * MathF.Max(1f, d.Environment.Gravity))
         Warn($"gravity {d.Environment.Gravity} != |gravityVector| {sessionGravity.Length():F3}");
-    Console.WriteLine($"Discovery: game={d.GameName} schema={d.SchemaVersion} " +
+    Console.WriteLine($"Discovery: game={d.GameName} instance='{d.InstanceLabel}' host='{d.Host}' " +
+                      $"from={source} schema={d.SchemaVersion} " +
                       $"generation={generation.Number} pages={generation.PageCount} " +
                       $"objects={generation.Objects.Count} medium={d.Environment.Medium} " +
                       $"gravity={Vec(sessionGravity)}");
@@ -42,27 +50,31 @@ receiver.DiscoveryReceived += d =>
                           $"primary={o.Primary} drivePoints={o.DrivePointCount} " +
                           $"channels={o.Channels.Count}");
         foreach (var ch in o.Channels.Values.OrderBy(c => c.Id))
-            Console.WriteLine($"    channel {ch.Id}: {ch.Name} [{ch.Unit}] range={DescribeRange(ch)}");
+            Console.WriteLine($"    channel {ch.Id}: {ch.Name} [{ch.Unit}] type={ch.Type} range={DescribeRange(ch)}");
         foreach (var (id, value) in o.Values)
             Console.WriteLine($"    value {id}: {value}");
     }
     printedDiscovery = true;
 };
 
-receiver.EventReceived += e =>
+receiver.EventReceivedFrom += (source, e) =>
 {
+    sessions.OnFrame(source);
     foreach (var ev in e.Events)
     {
         var dir = ev.which == CapnpGen.Event.WHICH.Direction
             ? $" dir=({ev.Direction.X:F1},{ev.Direction.Y:F1},{ev.Direction.Z:F1})" : "";
-        if (!seenEventIds.Add(ev.Id)) { deduped++; continue; }
+        // ids are session-monotonic per sender: dedup per source
+        if (!seenEventIds.Add((source, ev.Id))) { deduped++; continue; }
         Console.WriteLine($"Event: id={ev.Id} {ev.Name} intensity={ev.Intensity:F2} " +
                           $"duration={ev.Duration:F2}s{dir} object='{ev.Object}'");
     }
 };
 
-receiver.MotionReceived += m =>
+receiver.MotionReceivedFrom += (source, m) =>
 {
+    // ids resolve only against this sender's own tables
+    var tables = sessions.OnFrame(source)?.Tables;
     if (m.Objects.Count == 0) return;
     if (m.PartCount > 1 && m.Part >= m.PartCount) Warn($"part {m.Part} of {m.PartCount}");
     // a later part carries channel values only; pose rides part 0
@@ -74,14 +86,17 @@ receiver.MotionReceived += m =>
     motionSeen++;
     // throttle per object: a global frame counter would only ever print
     // one sender when several publishers interleave (modulo parity)
-    long seen = motionPerObject.TryGetValue(primary.Name ?? "?", out var n) ? n : 0;
-    motionPerObject[primary.Name ?? "?"] = seen + 1;
+    var key = $"{source}/{primary.Name}";
+    long seen = motionPerObject.TryGetValue(key, out var n) ? n : 0;
+    motionPerObject[key] = seen + 1;
     if (seen % 180 == 0)
     {
         // ids resolve against the generation the frame names; values whose
         // descriptor page has not arrived yet are held back
-        var vals = string.Join(" ", primary.Channels
-            .Where(c => tables.TryGetChannel(m.Generation, primary.Name ?? "", c.Id, out _))
+        // values whose variant differs from the declared type are dropped
+        var vals = tables is null ? "" : string.Join(" ", primary.Channels
+            .Where(c => tables.TryGetChannel(m.Generation, primary.Name ?? "", c.Id, out var known)
+                        && known.Accepts(c.which))
             .Select(c =>
             {
                 tables.TryGetChannel(m.Generation, primary.Name ?? "", c.Id, out var ch);

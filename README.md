@@ -44,7 +44,7 @@ especially around networking and the conversion/derivation math.
 |---|---|
 | `src/Ogs.Telemetry` | Sending library, no dependencies: `Envelope` (OMT1 header + message framing), `Wire` (canonical encoder), `TelemetrySender`, `TelemetryPublisher` (declare/bind/push wiring), `Paging` (datagram budget: `DiscoveryPager`, `MotionPartPlanner`), `Unit` + `Conversions` (bind-time unit massaging) |
 | `src/Ogs.Telemetry/Schema` | Generated canonical writers (`capnp/gen_writers.py` regenerates) |
-| `src/Ogs.Telemetry.Receiving` | Receiving library: `TelemetryReceiver`, `MessageDecoder`, `DescriptorTables` (merges discovery pages per generation), generated Capnp.Net readers in `Schema/` (`capnp/build.sh` regenerates) |
+| `src/Ogs.Telemetry.Receiving` | Receiving library: `TelemetryReceiver`, `MessageDecoder`, `DescriptorTables` (merges discovery pages per generation), `SessionTracker` (per-sender sessions and selection), generated Capnp.Net readers in `Schema/` (`capnp/build.sh` regenerates) |
 | `src/TelemetryDemo` | Demo sender: one car, discovery every 2 s, ~60 Hz motion |
 | `src/TelemetryReceive` | Reference receiver with conformance checks |
 | `src/ConformanceGen` | Deterministic conformance-corpus generator (writes to the standard repo) |
@@ -88,6 +88,17 @@ Receivers feed every discovery frame to `DescriptorTables.Apply` and
 resolve a motion frame's channel ids with `TryGetChannel(frame.Generation,
 …)`: pages merge by object name and id, each usable on arrival, and the
 previous generation stays resolvable while a new one arrives.
+
+Several senders can share a group ([implementation-udp.md § Senders and
+sessions](https://github.com/Open-Game-Standards/OGS-Telemetry-Standard/blob/main/implementation-udp.md#senders-and-sessions)).
+`TelemetryReceiver`'s `…ReceivedFrom` events carry each frame's source
+address and port, and `SessionTracker` keeps one `DescriptorTables` per
+sender, ends silent senders after 10 s, and offers `Selected` for receivers
+that drive one output: a pinned `SessionPin` (game name, instance label,
+host) when set, otherwise a sender on this host, then the newest session.
+Senders name their instance with `SetInstance(label, host)`; declared
+channels carry their value type, and `DescriptorTables.Channel.Accepts`
+drops values whose variant differs from it.
 
 Pause ([CONVENTIONS C-11](https://github.com/Open-Game-Standards/OGS-Telemetry-Standard/blob/main/CONVENTIONS.md#c-11-pause)): hosts that can tell when their game is paused call
 `DeclarePause()` during setup and `SetPaused(bool)` as the state changes,

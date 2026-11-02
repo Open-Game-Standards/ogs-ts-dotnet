@@ -18,7 +18,8 @@
   project is not hand-edited.
 - Conformance checks a receiver should enforce live in
   `src/TelemetryReceive/Program.cs` (magic, schemaVersion, quaternion norm,
-  primary object, page/part indexes, page merging via `DescriptorTables`)
+  primary object, page/part indexes, page merging via `DescriptorTables`,
+  per-sender sessions via `SessionTracker`, declared value types)
   — keep that file the canonical example.
 - Every datagram the core sends stays within the standard's 1,400-byte
   budget: discovery pages through `DiscoveryPager`, motion parts through

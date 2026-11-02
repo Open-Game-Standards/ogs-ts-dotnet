@@ -26,6 +26,18 @@ public sealed class DescriptorTables
         public string Name { get; internal set; } = "";
         public string Unit { get; internal set; } = "";
         public string Description { get; internal set; } = "";
+        /// <summary>Declared value type; Unspecified when the sender did not declare one.</summary>
+        public CapnpGen.ChannelType Type { get; internal set; }
+
+        /// <summary>False for a value whose variant differs from the declared
+        /// type: receivers drop it (DESIGN.md, Typed channel values).</summary>
+        public bool Accepts(CapnpGen.ChannelValue.WHICH variant) => Type switch
+        {
+            CapnpGen.ChannelType.number => variant == CapnpGen.ChannelValue.WHICH.Number,
+            CapnpGen.ChannelType.boolean => variant == CapnpGen.ChannelValue.WHICH.Boolean,
+            CapnpGen.ChannelType.text => variant == CapnpGen.ChannelValue.WHICH.Text,
+            _ => true,
+        };
         public bool HasRange { get; internal set; }
         public double Min { get; internal set; }
         public double Max { get; internal set; }
@@ -111,7 +123,7 @@ public sealed class DescriptorTables
                 obj.Channels[ch.Id] = new Channel
                 {
                     Id = ch.Id, Name = ch.Name ?? "", Unit = ch.Unit ?? "",
-                    Description = ch.Description ?? "", HasRange = range,
+                    Description = ch.Description ?? "", Type = ch.Type, HasRange = range,
                     Min = range ? ch.Range.Min : 0, Max = range ? ch.Range.Max : 0,
                 };
             }

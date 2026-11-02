@@ -30,6 +30,14 @@ public sealed class TelemetryReceiver : IDisposable
     public event Action<CapnpGen.MotionFrame.READER>? MotionReceived;
     public event Action<CapnpGen.EventFrame.READER>? EventReceived;
 
+    /// <summary>The same frames with the sender they came from: its source
+    /// address and port, which identify a sender (implementation-udp.md §
+    /// Senders and sessions). Receivers that may see more than one sender
+    /// key their state by it — <see cref="SessionTracker"/> does.</summary>
+    public event Action<IPEndPoint, CapnpGen.DiscoveryFrame.READER>? DiscoveryReceivedFrom;
+    public event Action<IPEndPoint, CapnpGen.MotionFrame.READER>? MotionReceivedFrom;
+    public event Action<IPEndPoint, CapnpGen.EventFrame.READER>? EventReceivedFrom;
+
     /// <summary>Every OMT1 datagram as it arrives, before it is decoded:
     /// frame type and length in bytes, envelope included — for receivers
     /// that check the 1,400-byte datagram budget (implementation-udp.md §
@@ -116,7 +124,8 @@ public sealed class TelemetryReceiver : IDisposable
                 try { DatagramReceived?.Invoke(type, len); }
                 catch (Exception ex) { HandlerErrors++; try { HandlerFaulted?.Invoke(ex); } catch (Exception) { } }
                 var root = MessageDecoder.DecodeRoot(payload.Span);
-                Dispatch(type, root);
+                var src = (IPEndPoint)from;
+                Dispatch(type, root, new IPEndPoint(src.Address, src.Port));
             }
             catch (Capnp.DeserializationException)
             {
@@ -133,21 +142,33 @@ public sealed class TelemetryReceiver : IDisposable
         }
     }
 
-    void Dispatch(FrameType type, Capnp.DeserializerState root)
+    void Dispatch(FrameType type, Capnp.DeserializerState root, IPEndPoint source)
     {
         try
         {
             switch (type)
             {
                 case FrameType.Discovery:
-                    DiscoveryReceived?.Invoke(CapnpGen.DiscoveryFrame.READER.create(root));
+                {
+                    var d = CapnpGen.DiscoveryFrame.READER.create(root);
+                    DiscoveryReceived?.Invoke(d);
+                    DiscoveryReceivedFrom?.Invoke(source, d);
                     break;
+                }
                 case FrameType.Motion:
-                    MotionReceived?.Invoke(CapnpGen.MotionFrame.READER.create(root));
+                {
+                    var m = CapnpGen.MotionFrame.READER.create(root);
+                    MotionReceived?.Invoke(m);
+                    MotionReceivedFrom?.Invoke(source, m);
                     break;
+                }
                 case FrameType.Event:
-                    EventReceived?.Invoke(CapnpGen.EventFrame.READER.create(root));
+                {
+                    var e = CapnpGen.EventFrame.READER.create(root);
+                    EventReceived?.Invoke(e);
+                    EventReceivedFrom?.Invoke(source, e);
                     break;
+                }
             }
         }
         catch (Capnp.DeserializationException)
