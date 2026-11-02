@@ -141,11 +141,58 @@ var described = new Dictionary<string, (string frameType, string description, ob
                 orientation = new { w = 1.0 },
                 localGravity = new { vector = new { } } } },
         }),
+    ["discovery-paged-p0"] = ("discovery",
+        "Paged discovery, page 0 of 2 (generation 3): the object's identity and its first channel",
+        new
+        {
+            schemaVersion = 1, gameName = "conformance", sessionStartUnixUs = sessionUs,
+            environment = envInput,
+            objects = new[] { new { name = "demo_car", type = "vehicle", typeLabel = "conformance car",
+                                    primary = true, channels = new object[]
+            {
+                new { name = "engine.rpm", unit = "rpm" },
+            } } },
+            generation = ConformanceVectors.PagedGeneration, pageCount = 2,
+        }),
+    ["discovery-paged-p1"] = ("discovery",
+        "Paged discovery, page 1 of 2 (generation 3): the object by name only, with a session " +
+        "text channel and its value, and a streamed channel",
+        new
+        {
+            schemaVersion = 1, gameName = "conformance", sessionStartUnixUs = sessionUs,
+            environment = envInput,
+            objects = new[] { new { name = "demo_car", channels = new object[]
+            {
+                new { id = 1, name = "session.track" },
+                new { id = 2, name = "vehicle.speed", unit = "m/s" },
+            }, values = new object[] { new { id = 1, text = "Test Ring" } } } },
+            generation = ConformanceVectors.PagedGeneration, page = 1, pageCount = 2,
+        }),
+    ["motion-parts-p0"] = ("motion",
+        "Motion tick in parts, part 0 of 2 (generation 3): pose and the first channel",
+        new
+        {
+            timestamp = 7.75,
+            objects = new[] { new { name = "demo_car",
+                position = new { x = 4.0, y = 0.5, z = -1.0 },
+                orientation = new { w = 1.0 },
+                channels = new object[] { new { number = 4100.0 } } } },
+            generation = ConformanceVectors.PagedGeneration, partCount = 2,
+        }),
+    ["motion-parts-p1"] = ("motion",
+        "Motion tick in parts, part 1 of 2 (generation 3): the object by name with channel values only",
+        new
+        {
+            timestamp = 7.75,
+            objects = new[] { new { name = "demo_car",
+                channels = new object[] { new { id = 2, number = 12.5 } } } },
+            generation = ConformanceVectors.PagedGeneration, part = 1, partCount = 2,
+        }),
 };
 
 var manifest = new
 {
-    corpusVersion = 5,
+    corpusVersion = 6,
     schemaVersion = 1,
     envelope = new { magic = "OMT1", headerBytes = 8 },
     floatRule = "all floats in this corpus are float32-exact; implementations compare exactly",

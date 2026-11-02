@@ -18,7 +18,12 @@
   project is not hand-edited.
 - Conformance checks a receiver should enforce live in
   `src/TelemetryReceive/Program.cs` (magic, schemaVersion, quaternion norm,
-  primary object) — keep that file the canonical example.
+  primary object, page/part indexes, page merging via `DescriptorTables`)
+  — keep that file the canonical example.
+- Every datagram the core sends stays within the standard's 1,400-byte
+  budget: discovery pages through `DiscoveryPager`, motion parts through
+  `MotionPartPlanner` (`src/Ogs.Telemetry/Paging.cs`). Hosts that build
+  their own frames use the same two helpers.
 
 ## Sandbox notes (agent environment)
 

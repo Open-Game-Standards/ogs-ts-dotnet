@@ -1,8 +1,9 @@
 using Ogs.Telemetry;
 using CapnpGen;
 
-// Reference receiver: joins the multicast group, prints discovery once and
-// motion throttled, and runs conformance checks on every frame.
+// Reference receiver: joins the multicast group, merges discovery pages
+// (printing each generation once it is complete), prints motion throttled,
+// and runs conformance checks on every frame.
 
 using var receiver = new TelemetryReceiver();
 var printedDiscovery = false;
@@ -10,6 +11,9 @@ long motionSeen = 0;
 var motionPerObject = new Dictionary<string, long>();
 long violations = 0;
 var seenEventIds = new HashSet<uint>();
+// paged discovery merges by generation (implementation-udp.md § Paged discovery)
+var tables = new DescriptorTables();
+var printedGenerations = new HashSet<uint>();
 long deduped = 0;
 // session gravity from the latest discovery (CONVENTIONS, Gravity);
 // standard gravity until the first discovery arrives
@@ -18,21 +22,29 @@ var sessionGravity = new System.Numerics.Vector3(0f, -9.80665f, 0f);
 receiver.DiscoveryReceived += d =>
 {
     if (d.SchemaVersion != 1) Warn($"schemaVersion {d.SchemaVersion} != 1 (attempting anyway)");
-    if (!d.Objects.Any(o => o.Primary)) Warn("no primary object in discovery");
+    if (d.PageCount > 1 && d.Page >= d.PageCount) Warn($"page {d.Page} of {d.PageCount}");
+    var generation = tables.Apply(d);
+    // the primary object is declared on the first page listing it; check
+    // once the generation is complete, and print it then (once)
+    if (!generation.Complete || !printedGenerations.Add(generation.Number)) return;
+    if (!generation.Objects.Values.Any(o => o.Primary)) Warn("no primary object in discovery");
     sessionGravity = Gravity.Session(d.Environment);
     if (d.Environment.which == CapnpGen.Environment.WHICH.GravityVector &&
         MathF.Abs(sessionGravity.Length() - d.Environment.Gravity) > 1e-3f * MathF.Max(1f, d.Environment.Gravity))
         Warn($"gravity {d.Environment.Gravity} != |gravityVector| {sessionGravity.Length():F3}");
     Console.WriteLine($"Discovery: game={d.GameName} schema={d.SchemaVersion} " +
-                      $"objects={d.Objects.Count} medium={d.Environment.Medium} " +
+                      $"generation={generation.Number} pages={generation.PageCount} " +
+                      $"objects={generation.Objects.Count} medium={d.Environment.Medium} " +
                       $"gravity={Vec(sessionGravity)}");
-    foreach (var o in d.Objects)
+    foreach (var o in generation.Objects.Values)
     {
         Console.WriteLine($"  object '{o.Name}' type={o.Type} typeLabel='{o.TypeLabel}' " +
-                          $"primary={o.Primary} drivePoints={o.DrivePoints.Count} " +
+                          $"primary={o.Primary} drivePoints={o.DrivePointCount} " +
                           $"channels={o.Channels.Count}");
-        foreach (var ch in o.Channels)
+        foreach (var ch in o.Channels.Values.OrderBy(c => c.Id))
             Console.WriteLine($"    channel {ch.Id}: {ch.Name} [{ch.Unit}] range={DescribeRange(ch)}");
+        foreach (var (id, value) in o.Values)
+            Console.WriteLine($"    value {id}: {value}");
     }
     printedDiscovery = true;
 };
@@ -52,6 +64,9 @@ receiver.EventReceived += e =>
 receiver.MotionReceived += m =>
 {
     if (m.Objects.Count == 0) return;
+    if (m.PartCount > 1 && m.Part >= m.PartCount) Warn($"part {m.Part} of {m.PartCount}");
+    // a later part carries channel values only; pose rides part 0
+    if (m.Part > 0) return;
     var primary = m.Objects[0];
     var q = primary.Orientation;
     float norm = MathF.Sqrt(q.X * q.X + q.Y * q.Y + q.Z * q.Z + q.W * q.W);
@@ -63,10 +78,17 @@ receiver.MotionReceived += m =>
     motionPerObject[primary.Name ?? "?"] = seen + 1;
     if (seen % 180 == 0)
     {
-        var vals = string.Join(" ", primary.Channels.Select(c =>
-            c.which == CapnpGen.ChannelValue.WHICH.Boolean
-                ? $"{c.Id}={c.Boolean}"
-                : $"{c.Id}={c.Number:F2}"));
+        // ids resolve against the generation the frame names; values whose
+        // descriptor page has not arrived yet are held back
+        var vals = string.Join(" ", primary.Channels
+            .Where(c => tables.TryGetChannel(m.Generation, primary.Name ?? "", c.Id, out _))
+            .Select(c =>
+            {
+                tables.TryGetChannel(m.Generation, primary.Name ?? "", c.Id, out var ch);
+                return c.which == CapnpGen.ChannelValue.WHICH.Boolean
+                    ? $"{ch.Name}={c.Boolean}"
+                    : $"{ch.Name}={c.Number:F2}";
+            }));
         var (yaw, pitch, roll) = ToEulerDegrees(q);
         // effective gravity: shown only when the object carries its own
         var local = primary.LocalGravity.which == MotionObject.localGravity.WHICH.Vector
@@ -105,8 +127,8 @@ static float Clamp1(float v) => v < -1f ? -1f : v > 1f ? 1f : v;
 
 static string Signed(float v) => (v >= 0 ? "+" : "") + (v + 0f).ToString("F1"); // +0f folds -0.0
 
-string DescribeRange(ChannelDescriptor.READER ch) =>
-    ch.which == ChannelDescriptor.WHICH.Range ? $"{ch.Range.Min}..{ch.Range.Max}" : "-";
+string DescribeRange(DescriptorTables.Channel ch) =>
+    ch.HasRange ? $"{ch.Min}..{ch.Max}" : "-";
 void Warn(string msg) { violations++; Console.WriteLine($"  [warn] {msg}"); }
 
 receiver.Start();

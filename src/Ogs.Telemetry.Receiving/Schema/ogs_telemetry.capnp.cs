@@ -512,6 +512,9 @@ namespace CapnpGen
             SessionStartUnixUs = reader.SessionStartUnixUs;
             Environment = CapnpSerializable.Create<CapnpGen.Environment>(reader.Environment);
             Objects = reader.Objects?.ToReadOnlyList(_ => CapnpSerializable.Create<CapnpGen.ObjectDescriptor>(_));
+            Generation = reader.Generation;
+            Page = reader.Page;
+            PageCount = reader.PageCount;
             applyDefaults();
         }
 
@@ -522,6 +525,9 @@ namespace CapnpGen
             writer.SessionStartUnixUs = SessionStartUnixUs;
             Environment?.serialize(writer.Environment);
             writer.Objects.Init(Objects, (_s1, _v1) => _v1?.serialize(_s1));
+            writer.Generation = Generation;
+            writer.Page = Page;
+            writer.PageCount = PageCount;
         }
 
         void ICapnpSerializable.Serialize(SerializerState arg_)
@@ -563,6 +569,24 @@ namespace CapnpGen
             set;
         }
 
+        public uint Generation
+        {
+            get;
+            set;
+        }
+
+        public ushort Page
+        {
+            get;
+            set;
+        }
+
+        public ushort PageCount
+        {
+            get;
+            set;
+        }
+
         public struct READER
         {
             readonly DeserializerState ctx;
@@ -579,13 +603,16 @@ namespace CapnpGen
             public long SessionStartUnixUs => ctx.ReadDataLong(64UL, 0L);
             public CapnpGen.Environment.READER Environment => ctx.ReadStruct(1, CapnpGen.Environment.READER.create);
             public IReadOnlyList<CapnpGen.ObjectDescriptor.READER> Objects => ctx.ReadList(2).Cast(CapnpGen.ObjectDescriptor.READER.create);
+            public uint Generation => ctx.ReadDataUInt(32UL, 0U);
+            public ushort Page => ctx.ReadDataUShort(16UL, (ushort)0);
+            public ushort PageCount => ctx.ReadDataUShort(128UL, (ushort)0);
         }
 
         public class WRITER : SerializerState
         {
             public WRITER()
             {
-                this.SetStruct(2, 3);
+                this.SetStruct(3, 3);
             }
 
             public ushort SchemaVersion
@@ -616,6 +643,24 @@ namespace CapnpGen
             {
                 get => BuildPointer<ListOfStructsSerializer<CapnpGen.ObjectDescriptor.WRITER>>(2);
                 set => Link(2, value);
+            }
+
+            public uint Generation
+            {
+                get => this.ReadDataUInt(32UL, 0U);
+                set => this.WriteData(32UL, value, 0U);
+            }
+
+            public ushort Page
+            {
+                get => this.ReadDataUShort(16UL, (ushort)0);
+                set => this.WriteData(16UL, value, (ushort)0);
+            }
+
+            public ushort PageCount
+            {
+                get => this.ReadDataUShort(128UL, (ushort)0);
+                set => this.WriteData(128UL, value, (ushort)0);
             }
         }
     }
@@ -1797,6 +1842,9 @@ namespace CapnpGen
             var reader = READER.create(arg_);
             Timestamp = reader.Timestamp;
             Objects = reader.Objects?.ToReadOnlyList(_ => CapnpSerializable.Create<CapnpGen.MotionObject>(_));
+            Generation = reader.Generation;
+            Part = reader.Part;
+            PartCount = reader.PartCount;
             applyDefaults();
         }
 
@@ -1804,6 +1852,9 @@ namespace CapnpGen
         {
             writer.Timestamp = Timestamp;
             writer.Objects.Init(Objects, (_s1, _v1) => _v1?.serialize(_s1));
+            writer.Generation = Generation;
+            writer.Part = Part;
+            writer.PartCount = PartCount;
         }
 
         void ICapnpSerializable.Serialize(SerializerState arg_)
@@ -1827,6 +1878,24 @@ namespace CapnpGen
             set;
         }
 
+        public uint Generation
+        {
+            get;
+            set;
+        }
+
+        public ushort Part
+        {
+            get;
+            set;
+        }
+
+        public ushort PartCount
+        {
+            get;
+            set;
+        }
+
         public struct READER
         {
             readonly DeserializerState ctx;
@@ -1840,13 +1909,16 @@ namespace CapnpGen
             public static implicit operator READER(DeserializerState ctx) => new READER(ctx);
             public double Timestamp => ctx.ReadDataDouble(0UL, 0);
             public IReadOnlyList<CapnpGen.MotionObject.READER> Objects => ctx.ReadList(0).Cast(CapnpGen.MotionObject.READER.create);
+            public uint Generation => ctx.ReadDataUInt(64UL, 0U);
+            public ushort Part => ctx.ReadDataUShort(96UL, (ushort)0);
+            public ushort PartCount => ctx.ReadDataUShort(112UL, (ushort)0);
         }
 
         public class WRITER : SerializerState
         {
             public WRITER()
             {
-                this.SetStruct(1, 1);
+                this.SetStruct(2, 1);
             }
 
             public double Timestamp
@@ -1859,6 +1931,24 @@ namespace CapnpGen
             {
                 get => BuildPointer<ListOfStructsSerializer<CapnpGen.MotionObject.WRITER>>(0);
                 set => Link(0, value);
+            }
+
+            public uint Generation
+            {
+                get => this.ReadDataUInt(64UL, 0U);
+                set => this.WriteData(64UL, value, 0U);
+            }
+
+            public ushort Part
+            {
+                get => this.ReadDataUShort(96UL, (ushort)0);
+                set => this.WriteData(96UL, value, (ushort)0);
+            }
+
+            public ushort PartCount
+            {
+                get => this.ReadDataUShort(112UL, (ushort)0);
+                set => this.WriteData(112UL, value, (ushort)0);
             }
         }
     }

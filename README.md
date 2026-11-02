@@ -42,9 +42,9 @@ especially around networking and the conversion/derivation math.
 
 | Path | Contents |
 |---|---|
-| `src/Ogs.Telemetry` | Sending library, no dependencies: `Envelope` (OMT1 header + message framing), `Wire` (canonical encoder), `TelemetrySender`, `TelemetryPublisher` (declare/bind/push wiring), `Unit` + `Conversions` (bind-time unit massaging) |
+| `src/Ogs.Telemetry` | Sending library, no dependencies: `Envelope` (OMT1 header + message framing), `Wire` (canonical encoder), `TelemetrySender`, `TelemetryPublisher` (declare/bind/push wiring), `Paging` (datagram budget: `DiscoveryPager`, `MotionPartPlanner`), `Unit` + `Conversions` (bind-time unit massaging) |
 | `src/Ogs.Telemetry/Schema` | Generated canonical writers (`capnp/gen_writers.py` regenerates) |
-| `src/Ogs.Telemetry.Receiving` | Receiving library: `TelemetryReceiver`, `MessageDecoder`, generated Capnp.Net readers in `Schema/` (`capnp/build.sh` regenerates) |
+| `src/Ogs.Telemetry.Receiving` | Receiving library: `TelemetryReceiver`, `MessageDecoder`, `DescriptorTables` (merges discovery pages per generation), generated Capnp.Net readers in `Schema/` (`capnp/build.sh` regenerates) |
 | `src/TelemetryDemo` | Demo sender: one car, discovery every 2 s, ~60 Hz motion |
 | `src/TelemetryReceive` | Reference receiver with conformance checks |
 | `src/ConformanceGen` | Deterministic conformance-corpus generator (writes to the standard repo) |
@@ -74,6 +74,21 @@ per tick — they ride MotionFrame/EventFrame. Bind-time source units
 precomputed factors (`Conversions`); mismatches throw at bind, not on the
 wire. See `tests/Ogs.Telemetry.Tests/PublisherTests.cs` for the pattern.
 
+Datagram budget ([implementation-udp.md § Datagram budget](https://github.com/Open-Game-Standards/OGS-Telemetry-Standard/blob/main/implementation-udp.md#datagram-budget)):
+every datagram the publisher sends is at most 1,400 bytes, whatever the
+channel count. A descriptor set too large for one datagram is paged by
+`DiscoveryPager` — every page at the first tick and after a change, then
+spread across each 2-second re-send interval — and a tick with more
+channel values than one datagram holds goes out in parts planned by
+`MotionPartPlanner`, the pose in part 0. `Generation` increments whenever
+the object's identity changes (`SetObjectTypeLabel`), and every discovery
+page and motion part carries it.
+
+Receivers feed every discovery frame to `DescriptorTables.Apply` and
+resolve a motion frame's channel ids with `TryGetChannel(frame.Generation,
+…)`: pages merge by object name and id, each usable on arrival, and the
+previous generation stays resolvable while a new one arrives.
+
 Pause ([CONVENTIONS C-11](https://github.com/Open-Game-Standards/OGS-Telemetry-Standard/blob/main/CONVENTIONS.md#c-11-pause)): hosts that can tell when their game is paused call
 `DeclarePause()` during setup and `SetPaused(bool)` as the state changes,
 and keep calling `Tick` on a real-time clock while paused. Motion frames
@@ -100,9 +115,11 @@ dotnet run --project src/TelemetryReceive
 dotnet run --project src/TelemetryDemo
 ```
 
-The receiver prints the discovery frame (object, drive points, channels),
-motion at a throttled rate, and conformance warnings (magic/schemaVersion
-handled by the library; quaternion norm and primary-object checked here).
+The receiver merges discovery pages and prints each generation once it is
+complete (object, drive points, channels, session values), motion at a
+throttled rate with channels named through the generation's tables, and
+conformance warnings (magic/schemaVersion handled by the library;
+quaternion norm, primary object and page/part indexes checked here).
 
 Default endpoint: multicast `239.255.17.17:40123`, TTL 1 — nothing leaves
 the local subnet. See the standard's `implementation-udp.md` for the
