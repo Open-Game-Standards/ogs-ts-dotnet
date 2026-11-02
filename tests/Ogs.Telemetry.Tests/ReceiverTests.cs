@@ -50,6 +50,26 @@ public class ReceiverTests
     }
 
     [Fact]
+    public async Task DatagramReceived_Reports_Type_And_Length()
+    {
+        const int port = 41262;
+        using var receiver = new TelemetryReceiver(port: port,
+            localInterface: System.Net.IPAddress.Loopback);
+        var seen = new TaskCompletionSource<(FrameType, int)>(TaskCreationOptions.RunContinuationsAsynchronously);
+        receiver.DatagramReceived += (type, length) => seen.TrySetResult((type, length));
+        receiver.Start();
+
+        var frame = new Ogs.Telemetry.Schema.MotionFrame { Timestamp = 3.0 };
+        int expected = Ogs.Telemetry.Wire.CanonicalEncoder.EncodeDatagram(FrameType.Motion, frame).Length;
+        using var sender = new TelemetrySender(port: port,
+            localInterface: System.Net.IPAddress.Loopback);
+        sender.Send(FrameType.Motion, frame);
+        var (type, length) = await seen.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Equal(FrameType.Motion, type);
+        Assert.Equal(expected, length);
+    }
+
+    [Fact]
     public void Dispose_Is_Idempotent()
     {
         var receiver = new TelemetryReceiver(port: 41243);

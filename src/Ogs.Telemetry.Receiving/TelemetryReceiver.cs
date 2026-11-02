@@ -30,6 +30,12 @@ public sealed class TelemetryReceiver : IDisposable
     public event Action<CapnpGen.MotionFrame.READER>? MotionReceived;
     public event Action<CapnpGen.EventFrame.READER>? EventReceived;
 
+    /// <summary>Every OMT1 datagram as it arrives, before it is decoded:
+    /// frame type and length in bytes, envelope included — for receivers
+    /// that check the 1,400-byte datagram budget (implementation-udp.md §
+    /// Datagram budget). Raised on the receive thread.</summary>
+    public event Action<FrameType, int>? DatagramReceived;
+
     /// <summary>Completes when the receive loop has exited — after Dispose,
     /// or if it ever faults. Dispose observes faults, so a clean shutdown
     /// completes successfully; hosts may await this.</summary>
@@ -107,6 +113,8 @@ public sealed class TelemetryReceiver : IDisposable
                     ForeignSkipped++;
                     continue;
                 }
+                try { DatagramReceived?.Invoke(type, len); }
+                catch (Exception ex) { HandlerErrors++; try { HandlerFaulted?.Invoke(ex); } catch (Exception) { } }
                 var root = MessageDecoder.DecodeRoot(payload.Span);
                 Dispatch(type, root);
             }
