@@ -130,13 +130,20 @@ public sealed class TelemetryPublisher : IDisposable
     /// <summary>Identifies this sender instance in receivers' session
     /// pickers and pinned choices (implementation-udp.md § Senders and
     /// sessions): a user-set label such as "Rig 2" when more than one
-    /// instance can run on the network, and the machine's host name.
-    /// Both may stay empty.</summary>
-    public void SetInstance(string instanceLabel, string host = "")
+    /// instance can run on the network, and the machine's host name
+    /// (null = this machine's, "" = none). Both may stay empty.</summary>
+    public void SetInstance(string instanceLabel, string? host = null)
     {
         LockCheck("SetInstance");
         _instanceLabel = instanceLabel ?? "";
-        _host = host ?? "";
+        _host = host ?? LocalHostName();
+    }
+
+    /// <summary>This machine's host name, or "" where the platform has none.</summary>
+    public static string LocalHostName()
+    {
+        try { return System.Net.Dns.GetHostName() ?? ""; }
+        catch (Exception) { return ""; }
     }
 
     public void DeclareObject(string name, string typeLabel = "")
