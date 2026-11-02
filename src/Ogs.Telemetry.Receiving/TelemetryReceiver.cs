@@ -44,6 +44,11 @@ public sealed class TelemetryReceiver : IDisposable
     /// Datagram budget). Raised on the receive thread.</summary>
     public event Action<FrameType, int>? DatagramReceived;
 
+    /// <summary><see cref="DatagramReceived"/> with the sender's source
+    /// address and port, for per-sender checks such as the sender size
+    /// envelope (implementation-udp.md § Sender size envelope).</summary>
+    public event Action<IPEndPoint, FrameType, int>? DatagramReceivedFrom;
+
     /// <summary>Completes when the receive loop has exited — after Dispose,
     /// or if it ever faults. Dispose observes faults, so a clean shutdown
     /// completes successfully; hosts may await this.</summary>
@@ -121,11 +126,16 @@ public sealed class TelemetryReceiver : IDisposable
                     ForeignSkipped++;
                     continue;
                 }
-                try { DatagramReceived?.Invoke(type, len); }
+                var src = (IPEndPoint)from;
+                var source = new IPEndPoint(src.Address, src.Port);
+                try
+                {
+                    DatagramReceived?.Invoke(type, len);
+                    DatagramReceivedFrom?.Invoke(source, type, len);
+                }
                 catch (Exception ex) { HandlerErrors++; try { HandlerFaulted?.Invoke(ex); } catch (Exception) { } }
                 var root = MessageDecoder.DecodeRoot(payload.Span);
-                var src = (IPEndPoint)from;
-                Dispatch(type, root, new IPEndPoint(src.Address, src.Port));
+                Dispatch(type, root, source);
             }
             catch (Capnp.DeserializationException)
             {
