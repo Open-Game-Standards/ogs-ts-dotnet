@@ -118,6 +118,13 @@ struct DiscoveryFrame {
   page @6 :UInt16;                 # 0-based index of this page within the generation
   pageCount @7 :UInt16;            # pages in this generation; 0 or 1 = the frame is
                                    # the complete set (unpaged)
+
+  # Sender identity for receivers choosing among several senders on one
+  # network (implementation-udp.md § Senders and sessions). Display and
+  # pinning only: receivers tell senders apart by source address and port.
+  instanceLabel @8 :Text;          # user-set label for this instance, e.g. "Rig 2",
+                                   # "Instructor"; "" = none
+  host @9 :Text;                   # sender's host name, e.g. "sim-pc"; "" = not given
 }
 
 struct ObjectDescriptor {
@@ -179,6 +186,17 @@ struct ChannelDescriptor {
     range @4 :Range;               # declared operating range
   }
   description @5 :Text;            # human-readable, shown by dash tools
+  type @6 :ChannelType;             # which ChannelValue variant carries this channel
+}
+
+enum ChannelType {
+  # Declared value type of a channel, so receivers can lay out and bind a
+  # channel before its first value arrives. `unspecified` holds the zero
+  # value: an unset type never claims a variant.
+  unspecified @0;
+  number      @1;
+  boolean     @2;
+  text        @3;
 }
 
 struct SuspensionSpec {

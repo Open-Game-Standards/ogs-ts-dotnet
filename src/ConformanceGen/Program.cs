@@ -32,7 +32,7 @@ var described = new Dictionary<string, (string frameType, string description, ob
             objects = new[] { new { name = "obj", type = "vehicle", primary = true } },
         }),
     ["discovery-channels"] = ("discovery",
-        "Object with three channels incl. ranges, a description and a unitless boolean channel",
+        "Object with three channels incl. ranges, a description, declared value types and a unitless boolean channel",
         new
         {
             schemaVersion = 1, gameName = "conformance", sessionStartUnixUs = sessionUs,
@@ -41,9 +41,9 @@ var described = new Dictionary<string, (string frameType, string description, ob
                                     primary = true, channels = new object[]
             {
                 new { id = 0, name = "engine.rpm", unit = "rpm", range = new { min = 0.0, max = 9000.0 },
-                      description = "Engine revolutions per minute" },
-                new { id = 1, name = "vehicle.speed", unit = "m/s", range = new { max = 30.0 } },
-                new { id = 2, name = "lights.headlights" },
+                      description = "Engine revolutions per minute", type = "number" },
+                new { id = 1, name = "vehicle.speed", unit = "m/s", range = new { max = 30.0 }, type = "number" },
+                new { id = 2, name = "lights.headlights", type = "boolean" },
             } } },
         }),
     ["motion-pose"] = ("motion",
@@ -150,7 +150,7 @@ var described = new Dictionary<string, (string frameType, string description, ob
             objects = new[] { new { name = "demo_car", type = "vehicle", typeLabel = "conformance car",
                                     primary = true, channels = new object[]
             {
-                new { name = "engine.rpm", unit = "rpm" },
+                new { name = "engine.rpm", unit = "rpm", type = "number" },
             } } },
             generation = ConformanceVectors.PagedGeneration, pageCount = 2,
         }),
@@ -163,8 +163,8 @@ var described = new Dictionary<string, (string frameType, string description, ob
             environment = envInput,
             objects = new[] { new { name = "demo_car", channels = new object[]
             {
-                new { id = 1, name = "session.track" },
-                new { id = 2, name = "vehicle.speed", unit = "m/s" },
+                new { id = 1, name = "session.track", type = "text" },
+                new { id = 2, name = "vehicle.speed", unit = "m/s", type = "number" },
             }, values = new object[] { new { id = 1, text = "Test Ring" } } } },
             generation = ConformanceVectors.PagedGeneration, page = 1, pageCount = 2,
         }),
@@ -188,11 +188,20 @@ var described = new Dictionary<string, (string frameType, string description, ob
                 channels = new object[] { new { id = 2, number = 12.5 } } } },
             generation = ConformanceVectors.PagedGeneration, part = 1, partCount = 2,
         }),
+    ["discovery-identity"] = ("discovery",
+        "Sender instance identity for session pickers and pinning: instanceLabel and host",
+        new
+        {
+            schemaVersion = 1, gameName = "conformance", sessionStartUnixUs = sessionUs,
+            environment = envInput,
+            objects = new[] { new { name = "obj", type = "aircraft", primary = true } },
+            instanceLabel = "Rig 2", host = "sim-pc",
+        }),
 };
 
 var manifest = new
 {
-    corpusVersion = 6,
+    corpusVersion = 7,
     schemaVersion = 1,
     envelope = new { magic = "OMT1", headerBytes = 8 },
     floatRule = "all floats in this corpus are float32-exact; implementations compare exactly",

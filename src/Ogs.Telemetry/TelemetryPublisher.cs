@@ -70,6 +70,8 @@ public sealed class TelemetryPublisher : IDisposable
     readonly List<Schema.DrivePointDescriptor> _drivePoints = new();
     string _objectName = "player";
     string _typeLabel = "";
+    string _instanceLabel = "";
+    string _host = "";
     bool _locked;
     ChannelHandle? _pauseChannel;
 
@@ -124,6 +126,18 @@ public sealed class TelemetryPublisher : IDisposable
     }
 
     // ---- declaration phase (before first Tick) ----
+
+    /// <summary>Identifies this sender instance in receivers' session
+    /// pickers and pinned choices (implementation-udp.md § Senders and
+    /// sessions): a user-set label such as "Rig 2" when more than one
+    /// instance can run on the network, and the machine's host name.
+    /// Both may stay empty.</summary>
+    public void SetInstance(string instanceLabel, string host = "")
+    {
+        LockCheck("SetInstance");
+        _instanceLabel = instanceLabel ?? "";
+        _host = host ?? "";
+    }
 
     public void DeclareObject(string name, string typeLabel = "")
     {
@@ -326,6 +340,7 @@ public sealed class TelemetryPublisher : IDisposable
             Name = name,
             Unit = unit.ToWireString(),
             Description = description,
+            Type = boolean ? Schema.ChannelType.Boolean : Schema.ChannelType.Number,
         };
         if (!double.IsNaN(min) && !double.IsNaN(max))
         {
@@ -560,6 +575,8 @@ public sealed class TelemetryPublisher : IDisposable
         SchemaVersion = 1,
         GameName = _gameName,
         SessionStartUnixUs = _sessionStartTicks / 10, // .NET ticks (100 ns) → µs
+        InstanceLabel = _instanceLabel,
+        Host = _host,
         Objects = new List<Schema.ObjectDescriptor>
         {
             new()

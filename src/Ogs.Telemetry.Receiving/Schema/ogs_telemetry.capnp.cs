@@ -515,6 +515,8 @@ namespace CapnpGen
             Generation = reader.Generation;
             Page = reader.Page;
             PageCount = reader.PageCount;
+            InstanceLabel = reader.InstanceLabel;
+            Host = reader.Host;
             applyDefaults();
         }
 
@@ -528,6 +530,8 @@ namespace CapnpGen
             writer.Generation = Generation;
             writer.Page = Page;
             writer.PageCount = PageCount;
+            writer.InstanceLabel = InstanceLabel;
+            writer.Host = Host;
         }
 
         void ICapnpSerializable.Serialize(SerializerState arg_)
@@ -587,6 +591,18 @@ namespace CapnpGen
             set;
         }
 
+        public string InstanceLabel
+        {
+            get;
+            set;
+        }
+
+        public string Host
+        {
+            get;
+            set;
+        }
+
         public struct READER
         {
             readonly DeserializerState ctx;
@@ -606,13 +622,15 @@ namespace CapnpGen
             public uint Generation => ctx.ReadDataUInt(32UL, 0U);
             public ushort Page => ctx.ReadDataUShort(16UL, (ushort)0);
             public ushort PageCount => ctx.ReadDataUShort(128UL, (ushort)0);
+            public string InstanceLabel => ctx.ReadText(3, null);
+            public string Host => ctx.ReadText(4, null);
         }
 
         public class WRITER : SerializerState
         {
             public WRITER()
             {
-                this.SetStruct(3, 3);
+                this.SetStruct(3, 5);
             }
 
             public ushort SchemaVersion
@@ -661,6 +679,18 @@ namespace CapnpGen
             {
                 get => this.ReadDataUShort(128UL, (ushort)0);
                 set => this.WriteData(128UL, value, (ushort)0);
+            }
+
+            public string InstanceLabel
+            {
+                get => this.ReadText(3, null);
+                set => this.WriteText(3, value, null);
+            }
+
+            public string Host
+            {
+                get => this.ReadText(4, null);
+                set => this.WriteText(4, value, null);
             }
         }
     }
@@ -963,6 +993,7 @@ namespace CapnpGen
             Name = reader.Name;
             Unit = reader.Unit;
             Description = reader.Description;
+            Type = reader.Type;
             applyDefaults();
         }
 
@@ -1003,6 +1034,7 @@ namespace CapnpGen
             writer.Name = Name;
             writer.Unit = Unit;
             writer.Description = Description;
+            writer.Type = Type;
         }
 
         void ICapnpSerializable.Serialize(SerializerState arg_)
@@ -1048,6 +1080,12 @@ namespace CapnpGen
             set;
         }
 
+        public CapnpGen.ChannelType Type
+        {
+            get;
+            set;
+        }
+
         public struct READER
         {
             readonly DeserializerState ctx;
@@ -1065,6 +1103,7 @@ namespace CapnpGen
             public string Unit => ctx.ReadText(1, null);
             public CapnpGen.Range.READER Range => which == WHICH.Range ? ctx.ReadStruct(2, CapnpGen.Range.READER.create) : default;
             public string Description => ctx.ReadText(3, null);
+            public CapnpGen.ChannelType Type => (CapnpGen.ChannelType)ctx.ReadDataUShort(32UL, (ushort)0);
         }
 
         public class WRITER : SerializerState
@@ -1109,7 +1148,22 @@ namespace CapnpGen
                 get => this.ReadText(3, null);
                 set => this.WriteText(3, value, null);
             }
+
+            public CapnpGen.ChannelType Type
+            {
+                get => (CapnpGen.ChannelType)this.ReadDataUShort(32UL, (ushort)0);
+                set => this.WriteData(32UL, (ushort)value, (ushort)0);
+            }
         }
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("capnpc-csharp", "1.3.0.0"), TypeId(0x926516f7255b322eUL)]
+    public enum ChannelType : ushort
+    {
+        unspecified,
+        number,
+        boolean,
+        text
     }
 
     [System.CodeDom.Compiler.GeneratedCode("capnpc-csharp", "1.3.0.0"), TypeId(0xd6f00ba2dc5e1c4cUL)]
