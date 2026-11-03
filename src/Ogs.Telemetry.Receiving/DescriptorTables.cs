@@ -81,6 +81,11 @@ public sealed class DescriptorTables
     /// <summary>Merges one discovery frame (page). Returns its generation.</summary>
     public Generation Apply(CapnpGen.DiscoveryFrame.READER d)
     {
+        // a page whose index is not below its count is malformed: ignored
+        // (implementation-udp.md § Paged discovery)
+        if (d.PageCount > 1 && d.Page >= d.PageCount)
+            return Find(d.Generation) ?? _current ?? new Generation { Number = d.Generation };
+
         if (d.SessionStartUnixUs != _sessionStart)
         {
             _sessionStart = d.SessionStartUnixUs;
