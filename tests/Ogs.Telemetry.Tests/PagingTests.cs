@@ -14,7 +14,7 @@ public class PagingTests
     static DiscoveryFrame Header() => new DiscoveryFrame
     {
         SchemaVersion = 1, GameName = "paging-test", SessionStartUnixUs = 42,
-        Environment = { AirDensity = 1.225f, Temperature = 20f, Pressure = 101325f, Gravity = 9.80665f },
+        Environment = { Gravity = 9.80665f },
     };
 
     static ObjectDescriptor BigObject(int channels, int values = 0)

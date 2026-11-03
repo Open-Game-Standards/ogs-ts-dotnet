@@ -19,7 +19,11 @@ var vecDir = Path.Combine(outDir, "vectors");
 Directory.CreateDirectory(vecDir);
 
 const long sessionUs = ConformanceVectors.SessionStartUnixUs;
-var envInput = new { airDensity = 1.25, temperature = 20.0, pressure = 1.0, gravity = 9.5, medium = "asphalt" };
+var envInput = new
+{
+    gravity = 9.5, medium = "asphalt",
+    atmosphere = new { known = new { airDensity = 1.25, temperature = 20.0, pressure = 1.0 } },
+};
 
 var described = new Dictionary<string, (string frameType, string description, object input)>
 {
@@ -113,8 +117,9 @@ var described = new Dictionary<string, (string frameType, string description, ob
             schemaVersion = 1, gameName = "conformance", sessionStartUnixUs = sessionUs,
             environment = new
             {
-                airDensity = 1.25, temperature = 20.0, pressure = 1.0, gravity = 5.0, medium = "vacuum",
+                gravity = 5.0, medium = "vacuum",
                 gravityVector = new { x = 3.0, y = -4.0 },
+                atmosphere = new { known = new { airDensity = 1.25, temperature = 20.0, pressure = 1.0 } },
             },
             objects = new[] { new { name = "obj", type = "spacecraft", primary = true } },
         }),
@@ -189,17 +194,18 @@ var described = new Dictionary<string, (string frameType, string description, ob
             generation = ConformanceVectors.PagedGeneration, part = 1, partCount = 2,
         }),
     ["discovery-identity"] = ("discovery",
-        "Sender instance identity for session pickers and pinning: instanceLabel and host",
+        "Sender instance identity for session pickers and pinning: instanceLabel and host; " +
+        "an environment without an atmosphere model (noAtmosphere)",
         new
         {
             schemaVersion = 1, gameName = "conformance", sessionStartUnixUs = sessionUs,
-            environment = envInput,
+            environment = new { gravity = 9.5, medium = "asphalt" }, // no atmosphere model
             objects = new[] { new { name = "obj", type = "aircraft", primary = true } },
             instanceLabel = "Rig 2", host = "sim-pc",
         }),
     ["motion-wheel"] = ("motion",
-        "Wheel drive point measuring torque but not brake pressure: named optionality " +
-        "unions torque.value selected, brakePressure left at noBrakePressure",
+        "Wheel drive point measuring rpm, slip, compression and torque: each a named " +
+        "optionality union with value selected; steer, load, damper, brake pressure and tyre unset",
         new
         {
             timestamp = 8.25,
@@ -208,15 +214,90 @@ var described = new Dictionary<string, (string frameType, string description, ob
                 orientation = new { w = 1.0 },
                 drivePoints = new[] { new { wheel = new
                 {
-                    rpm = 1200.0, slip = 0.0625, compression = 0.03125, contact = "asphalt",
-                    torque = new { value = 850.0 },
+                    contact = "asphalt",
+                    rpm = new { value = 1200.0 }, slip = new { value = 0.0625 },
+                    compression = new { value = 0.03125 }, torque = new { value = 850.0 },
                 } } } } },
         }),
+    ["motion-kinematics"] = ("motion",
+        "Pose + kinematics union variant: world-space velocity and coordinate acceleration",
+        new
+        {
+            timestamp = 9.5,
+            objects = new[] { new { name = "obj",
+                position = new { x = 1.0, y = 0.5, z = -2.0 },
+                orientation = new { w = 1.0 },
+                kinematics = new
+                {
+                    velocity = new { x = 0.5, y = -0.25, z = 12.0 },
+                    acceleration = new { x = 0.125, z = 2.5 },
+                } } },
+        }),
+    ["discovery-drivepoints"] = ("discovery",
+        "Every drive-point descriptor variant with its spec (wheel with suspension, propeller, " +
+        "jet, generic) and a channel with its value type left unspecified",
+        new
+        {
+            schemaVersion = 1, gameName = "conformance", sessionStartUnixUs = sessionUs,
+            environment = envInput,
+            objects = new[] { new { name = "obj", type = "vehicle", primary = true,
+                drivePoints = new object[]
+                {
+                    new { name = "wheel_fl", offset = new { x = -0.75, y = -0.25, z = 1.5 },
+                          wheel = new { radius = 0.3125, driven = true, steered = true,
+                                        suspension = new { travel = new { min = -0.0625, max = 0.125 },
+                                                           stiffness = 65000.0, damping = 5000.0 } } },
+                    new { id = 1, name = "prop", offset = new { z = 2.0 },
+                          propeller = new { diameter = 1.875, blades = 3 } },
+                    new { id = 2, name = "jet", offset = new { z = -3.0 }, jet = (object?)null },
+                    new { id = 3, name = "fan", offset = new { y = 1.0 },
+                          generic = new { ratedForce = 1500.0 } },
+                },
+                channels = new object[] { new { name = "mod.value" } } } },
+        }),
+    ["motion-drivepoints"] = ("motion",
+        "State for each drive-point kind: a wheel measuring every quantity incl. tyre, a " +
+        "propeller with pitch and thrust, a jet with thrust, a generic point with force",
+        new
+        {
+            timestamp = 10.25,
+            objects = new[] { new { name = "obj",
+                position = new { x = 3.0 },
+                orientation = new { w = 1.0 },
+                drivePoints = new object[]
+                {
+                    new { wheel = new
+                    {
+                        contact = "gravel",
+                        tyre = new { pressure = 180000.0, temperature = 85.0, wear = 0.875 },
+                        rpm = new { value = 900.0 }, slip = new { value = 0.125 },
+                        compression = new { value = 0.0625 }, steerAngle = new { value = 0.25 },
+                        loadForce = new { value = 4200.0 }, damperVelocity = new { value = -0.5 },
+                        torque = new { value = 300.0 }, brakePressure = new { value = 250000.0 },
+                    } },
+                    new { id = 1, propeller = new { rpm = 2400.0,
+                          extended = new { pitch = 0.375, thrust = 2000.0 } } },
+                    new { id = 2, jet = new { throttle = 0.75, thrust = 40000.0 } },
+                    new { id = 3, generic = new { engaged = true, force = new { y = 750.0 } } },
+                } } },
+        }),
+    ["motion-texts"] = ("motion",
+        "A text channel value in a motion frame: TextValue in texts beside a number in channels",
+        new
+        {
+            timestamp = 11.5,
+            objects = new[] { new { name = "demo_car",
+                position = new { x = 1.0 },
+                orientation = new { w = 1.0 },
+                channels = new object[] { new { id = 2, number = 12.5 } },
+                texts = new object[] { new { id = 1, text = "Pit lane" } } } },
+        }),
+
 };
 
 var manifest = new
 {
-    corpusVersion = 8,
+    corpusVersion = 9,
     schemaVersion = 1,
     envelope = new { magic = "OMT1", headerBytes = 8 },
     floatRule = "all floats in this corpus are float32-exact; implementations compare exactly",

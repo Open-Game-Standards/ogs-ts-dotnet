@@ -117,6 +117,11 @@ frame for gravity that varies by position or faster than discovery.
 `BodyDynamicsDeriver.GravityVector` from it so derived specific force
 reacts to the same gravity.
 
+Atmosphere: discovery declares none (`noAtmosphere`) until `SetEnvironment`
+gives air density, temperature and pressure, which ride together as
+`Environment.atmosphere.known`; a game without an atmosphere model leaves
+it unset rather than sending zeros that read as vacuum.
+
 ## Loopback demo
 
 Two terminals:

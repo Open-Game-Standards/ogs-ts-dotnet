@@ -96,8 +96,8 @@ public class CapnpRoundtripTests
         var state = new MotionObject { Name = "rig" };
         var dp = new DrivePoint { Id = 0 };
         var ws = dp.InitWheel();
-        ws.Rpm = 1200f; ws.Contact = ContactMedium.Gravel;
-        ws.InitExtended().TyreWear = 0.5f;
+        var rpm = ws.Rpm; rpm.Value = 1200f; ws.Contact = ContactMedium.Gravel;
+        ws.InitTyre().Wear = 0.5f;
         var brake = ws.BrakePressure; brake.Value = 2.5e6f;   // torque stays noTorque
         var jet = new DrivePoint { Id = 1 };
         jet.InitJet().Thrust = 4000f;
@@ -118,9 +118,9 @@ public class CapnpRoundtripTests
         var m = CapnpGen.MotionFrame.READER.create(Decode(new MotionFrame
             { Objects = new List<MotionObject> { state } }));
         var o = m.Objects[0];
-        Assert.Equal(1200f, o.DrivePoints[0].Wheel.Rpm);
+        Assert.Equal(1200f, o.DrivePoints[0].Wheel.Rpm.Value);
         Assert.Equal(CapnpGen.ContactMedium.gravel, o.DrivePoints[0].Wheel.Contact);
-        Assert.Equal(0.5f, o.DrivePoints[0].Wheel.Extended.TyreWear);
+        Assert.Equal(0.5f, o.DrivePoints[0].Wheel.Tyre.Wear);
         Assert.Equal(CapnpGen.DrivePoint.WHICH.Jet, o.DrivePoints[1].which);
         Assert.Equal(4000f, o.DrivePoints[1].Jet.Thrust);
         Assert.Equal(CapnpGen.WheelState.brakePressure.WHICH.Value, o.DrivePoints[0].Wheel.BrakePressure.which);

@@ -332,11 +332,9 @@ namespace CapnpGen
                     break;
             }
 
-            AirDensity = reader.AirDensity;
-            Temperature = reader.Temperature;
-            Pressure = reader.Pressure;
             Gravity = reader.Gravity;
             Medium = reader.Medium;
+            Atmosphere = CapnpSerializable.Create<CapnpGen.Environment.atmosphere>(reader.Atmosphere);
             applyDefaults();
         }
 
@@ -373,11 +371,237 @@ namespace CapnpGen
                     break;
             }
 
+            writer.Gravity = Gravity;
+            writer.Medium = Medium;
+            Atmosphere?.serialize(writer.Atmosphere);
+        }
+
+        void ICapnpSerializable.Serialize(SerializerState arg_)
+        {
+            serialize(arg_.Rewrap<WRITER>());
+        }
+
+        public void applyDefaults()
+        {
+        }
+
+        public float Gravity
+        {
+            get;
+            set;
+        }
+
+        public CapnpGen.ContactMedium Medium
+        {
+            get;
+            set;
+        }
+
+        public CapnpGen.Vector3 GravityVector
+        {
+            get => _which == WHICH.GravityVector ? (CapnpGen.Vector3)_content : null;
+            set
+            {
+                _which = WHICH.GravityVector;
+                _content = value;
+            }
+        }
+
+        public CapnpGen.Environment.atmosphere Atmosphere
+        {
+            get;
+            set;
+        }
+
+        public struct READER
+        {
+            readonly DeserializerState ctx;
+            public READER(DeserializerState ctx)
+            {
+                this.ctx = ctx;
+            }
+
+            public static READER create(DeserializerState ctx) => new READER(ctx);
+            public static implicit operator DeserializerState(READER reader) => reader.ctx;
+            public static implicit operator READER(DeserializerState ctx) => new READER(ctx);
+            public WHICH which => (WHICH)ctx.ReadDataUShort(48U, (ushort)0);
+            public float Gravity => ctx.ReadDataFloat(0UL, 0F);
+            public CapnpGen.ContactMedium Medium => (CapnpGen.ContactMedium)ctx.ReadDataUShort(32UL, (ushort)0);
+            public CapnpGen.Vector3.READER GravityVector => which == WHICH.GravityVector ? ctx.ReadStruct(0, CapnpGen.Vector3.READER.create) : default;
+            public atmosphere.READER Atmosphere => new atmosphere.READER(ctx);
+        }
+
+        public class WRITER : SerializerState
+        {
+            public WRITER()
+            {
+                this.SetStruct(2, 2);
+            }
+
+            public WHICH which
+            {
+                get => (WHICH)this.ReadDataUShort(48U, (ushort)0);
+                set => this.WriteData(48U, (ushort)value, (ushort)0);
+            }
+
+            public float Gravity
+            {
+                get => this.ReadDataFloat(0UL, 0F);
+                set => this.WriteData(0UL, value, 0F);
+            }
+
+            public CapnpGen.ContactMedium Medium
+            {
+                get => (CapnpGen.ContactMedium)this.ReadDataUShort(32UL, (ushort)0);
+                set => this.WriteData(32UL, (ushort)value, (ushort)0);
+            }
+
+            public CapnpGen.Vector3.WRITER GravityVector
+            {
+                get => which == WHICH.GravityVector ? BuildPointer<CapnpGen.Vector3.WRITER>(0) : default;
+                set => Link(0, value);
+            }
+
+            public atmosphere.WRITER Atmosphere
+            {
+                get => Rewrap<atmosphere.WRITER>();
+            }
+        }
+
+        [System.CodeDom.Compiler.GeneratedCode("capnpc-csharp", "1.3.0.0"), TypeId(0x958255e2dad114b5UL)]
+        public class atmosphere : ICapnpSerializable
+        {
+            public const UInt64 typeId = 0x958255e2dad114b5UL;
+            public enum WHICH : ushort
+            {
+                NoAtmosphere = 0,
+                Known = 1,
+                undefined = 65535
+            }
+
+            void ICapnpSerializable.Deserialize(DeserializerState arg_)
+            {
+                var reader = READER.create(arg_);
+                switch (reader.which)
+                {
+                    case WHICH.NoAtmosphere:
+                        which = reader.which;
+                        break;
+                    case WHICH.Known:
+                        Known = CapnpSerializable.Create<CapnpGen.Atmosphere>(reader.Known);
+                        break;
+                }
+
+                applyDefaults();
+            }
+
+            private WHICH _which = WHICH.undefined;
+            private object _content;
+            public WHICH which
+            {
+                get => _which;
+                set
+                {
+                    if (value == _which)
+                        return;
+                    _which = value;
+                    switch (value)
+                    {
+                        case WHICH.NoAtmosphere:
+                            break;
+                        case WHICH.Known:
+                            _content = null;
+                            break;
+                    }
+                }
+            }
+
+            public void serialize(WRITER writer)
+            {
+                writer.which = which;
+                switch (which)
+                {
+                    case WHICH.NoAtmosphere:
+                        break;
+                    case WHICH.Known:
+                        Known?.serialize(writer.Known);
+                        break;
+                }
+            }
+
+            void ICapnpSerializable.Serialize(SerializerState arg_)
+            {
+                serialize(arg_.Rewrap<WRITER>());
+            }
+
+            public void applyDefaults()
+            {
+            }
+
+            public CapnpGen.Atmosphere Known
+            {
+                get => _which == WHICH.Known ? (CapnpGen.Atmosphere)_content : null;
+                set
+                {
+                    _which = WHICH.Known;
+                    _content = value;
+                }
+            }
+
+            public struct READER
+            {
+                readonly DeserializerState ctx;
+                public READER(DeserializerState ctx)
+                {
+                    this.ctx = ctx;
+                }
+
+                public static READER create(DeserializerState ctx) => new READER(ctx);
+                public static implicit operator DeserializerState(READER reader) => reader.ctx;
+                public static implicit operator READER(DeserializerState ctx) => new READER(ctx);
+                public WHICH which => (WHICH)ctx.ReadDataUShort(64U, (ushort)0);
+                public CapnpGen.Atmosphere.READER Known => which == WHICH.Known ? ctx.ReadStruct(1, CapnpGen.Atmosphere.READER.create) : default;
+            }
+
+            public class WRITER : SerializerState
+            {
+                public WRITER()
+                {
+                }
+
+                public WHICH which
+                {
+                    get => (WHICH)this.ReadDataUShort(64U, (ushort)0);
+                    set => this.WriteData(64U, (ushort)value, (ushort)0);
+                }
+
+                public CapnpGen.Atmosphere.WRITER Known
+                {
+                    get => which == WHICH.Known ? BuildPointer<CapnpGen.Atmosphere.WRITER>(1) : default;
+                    set => Link(1, value);
+                }
+            }
+        }
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("capnpc-csharp", "1.3.0.0"), TypeId(0xaf6749661d8a088cUL)]
+    public class Atmosphere : ICapnpSerializable
+    {
+        public const UInt64 typeId = 0xaf6749661d8a088cUL;
+        void ICapnpSerializable.Deserialize(DeserializerState arg_)
+        {
+            var reader = READER.create(arg_);
+            AirDensity = reader.AirDensity;
+            Temperature = reader.Temperature;
+            Pressure = reader.Pressure;
+            applyDefaults();
+        }
+
+        public void serialize(WRITER writer)
+        {
             writer.AirDensity = AirDensity;
             writer.Temperature = Temperature;
             writer.Pressure = Pressure;
-            writer.Gravity = Gravity;
-            writer.Medium = Medium;
         }
 
         void ICapnpSerializable.Serialize(SerializerState arg_)
@@ -407,28 +631,6 @@ namespace CapnpGen
             set;
         }
 
-        public float Gravity
-        {
-            get;
-            set;
-        }
-
-        public CapnpGen.ContactMedium Medium
-        {
-            get;
-            set;
-        }
-
-        public CapnpGen.Vector3 GravityVector
-        {
-            get => _which == WHICH.GravityVector ? (CapnpGen.Vector3)_content : null;
-            set
-            {
-                _which = WHICH.GravityVector;
-                _content = value;
-            }
-        }
-
         public struct READER
         {
             readonly DeserializerState ctx;
@@ -440,26 +642,16 @@ namespace CapnpGen
             public static READER create(DeserializerState ctx) => new READER(ctx);
             public static implicit operator DeserializerState(READER reader) => reader.ctx;
             public static implicit operator READER(DeserializerState ctx) => new READER(ctx);
-            public WHICH which => (WHICH)ctx.ReadDataUShort(144U, (ushort)0);
             public float AirDensity => ctx.ReadDataFloat(0UL, 0F);
             public float Temperature => ctx.ReadDataFloat(32UL, 0F);
             public float Pressure => ctx.ReadDataFloat(64UL, 0F);
-            public float Gravity => ctx.ReadDataFloat(96UL, 0F);
-            public CapnpGen.ContactMedium Medium => (CapnpGen.ContactMedium)ctx.ReadDataUShort(128UL, (ushort)0);
-            public CapnpGen.Vector3.READER GravityVector => which == WHICH.GravityVector ? ctx.ReadStruct(0, CapnpGen.Vector3.READER.create) : default;
         }
 
         public class WRITER : SerializerState
         {
             public WRITER()
             {
-                this.SetStruct(3, 1);
-            }
-
-            public WHICH which
-            {
-                get => (WHICH)this.ReadDataUShort(144U, (ushort)0);
-                set => this.WriteData(144U, (ushort)value, (ushort)0);
+                this.SetStruct(2, 0);
             }
 
             public float AirDensity
@@ -478,24 +670,6 @@ namespace CapnpGen
             {
                 get => this.ReadDataFloat(64UL, 0F);
                 set => this.WriteData(64UL, value, 0F);
-            }
-
-            public float Gravity
-            {
-                get => this.ReadDataFloat(96UL, 0F);
-                set => this.WriteData(96UL, value, 0F);
-            }
-
-            public CapnpGen.ContactMedium Medium
-            {
-                get => (CapnpGen.ContactMedium)this.ReadDataUShort(128UL, (ushort)0);
-                set => this.WriteData(128UL, (ushort)value, (ushort)0);
-            }
-
-            public CapnpGen.Vector3.WRITER GravityVector
-            {
-                get => which == WHICH.GravityVector ? BuildPointer<CapnpGen.Vector3.WRITER>(0) : default;
-                set => Link(0, value);
             }
         }
     }
@@ -2827,8 +3001,8 @@ namespace CapnpGen
         public const UInt64 typeId = 0xe81c8acddcdbb52eUL;
         public enum WHICH : ushort
         {
-            Core = 0,
-            Extended = 1,
+            NoTyre = 0,
+            Tyre = 1,
             undefined = 65535
         }
 
@@ -2837,18 +3011,21 @@ namespace CapnpGen
             var reader = READER.create(arg_);
             switch (reader.which)
             {
-                case WHICH.Core:
+                case WHICH.NoTyre:
                     which = reader.which;
                     break;
-                case WHICH.Extended:
-                    Extended = CapnpSerializable.Create<CapnpGen.WheelExtended>(reader.Extended);
+                case WHICH.Tyre:
+                    Tyre = CapnpSerializable.Create<CapnpGen.TyreState>(reader.Tyre);
                     break;
             }
 
-            Rpm = reader.Rpm;
-            Slip = reader.Slip;
-            Compression = reader.Compression;
             Contact = reader.Contact;
+            Rpm = CapnpSerializable.Create<CapnpGen.WheelState.rpm>(reader.Rpm);
+            Slip = CapnpSerializable.Create<CapnpGen.WheelState.slip>(reader.Slip);
+            Compression = CapnpSerializable.Create<CapnpGen.WheelState.compression>(reader.Compression);
+            SteerAngle = CapnpSerializable.Create<CapnpGen.WheelState.steerAngle>(reader.SteerAngle);
+            LoadForce = CapnpSerializable.Create<CapnpGen.WheelState.loadForce>(reader.LoadForce);
+            DamperVelocity = CapnpSerializable.Create<CapnpGen.WheelState.damperVelocity>(reader.DamperVelocity);
             Torque = CapnpSerializable.Create<CapnpGen.WheelState.torque>(reader.Torque);
             BrakePressure = CapnpSerializable.Create<CapnpGen.WheelState.brakePressure>(reader.BrakePressure);
             applyDefaults();
@@ -2866,9 +3043,9 @@ namespace CapnpGen
                 _which = value;
                 switch (value)
                 {
-                    case WHICH.Core:
+                    case WHICH.NoTyre:
                         break;
-                    case WHICH.Extended:
+                    case WHICH.Tyre:
                         _content = null;
                         break;
                 }
@@ -2880,17 +3057,20 @@ namespace CapnpGen
             writer.which = which;
             switch (which)
             {
-                case WHICH.Core:
+                case WHICH.NoTyre:
                     break;
-                case WHICH.Extended:
-                    Extended?.serialize(writer.Extended);
+                case WHICH.Tyre:
+                    Tyre?.serialize(writer.Tyre);
                     break;
             }
 
-            writer.Rpm = Rpm;
-            writer.Slip = Slip;
-            writer.Compression = Compression;
             writer.Contact = Contact;
+            Rpm?.serialize(writer.Rpm);
+            Slip?.serialize(writer.Slip);
+            Compression?.serialize(writer.Compression);
+            SteerAngle?.serialize(writer.SteerAngle);
+            LoadForce?.serialize(writer.LoadForce);
+            DamperVelocity?.serialize(writer.DamperVelocity);
             Torque?.serialize(writer.Torque);
             BrakePressure?.serialize(writer.BrakePressure);
         }
@@ -2904,38 +3084,56 @@ namespace CapnpGen
         {
         }
 
-        public float Rpm
-        {
-            get;
-            set;
-        }
-
-        public float Slip
-        {
-            get;
-            set;
-        }
-
-        public float Compression
-        {
-            get;
-            set;
-        }
-
         public CapnpGen.ContactMedium Contact
         {
             get;
             set;
         }
 
-        public CapnpGen.WheelExtended Extended
+        public CapnpGen.TyreState Tyre
         {
-            get => _which == WHICH.Extended ? (CapnpGen.WheelExtended)_content : null;
+            get => _which == WHICH.Tyre ? (CapnpGen.TyreState)_content : null;
             set
             {
-                _which = WHICH.Extended;
+                _which = WHICH.Tyre;
                 _content = value;
             }
+        }
+
+        public CapnpGen.WheelState.rpm Rpm
+        {
+            get;
+            set;
+        }
+
+        public CapnpGen.WheelState.slip Slip
+        {
+            get;
+            set;
+        }
+
+        public CapnpGen.WheelState.compression Compression
+        {
+            get;
+            set;
+        }
+
+        public CapnpGen.WheelState.steerAngle SteerAngle
+        {
+            get;
+            set;
+        }
+
+        public CapnpGen.WheelState.loadForce LoadForce
+        {
+            get;
+            set;
+        }
+
+        public CapnpGen.WheelState.damperVelocity DamperVelocity
+        {
+            get;
+            set;
         }
 
         public CapnpGen.WheelState.torque Torque
@@ -2961,12 +3159,15 @@ namespace CapnpGen
             public static READER create(DeserializerState ctx) => new READER(ctx);
             public static implicit operator DeserializerState(READER reader) => reader.ctx;
             public static implicit operator READER(DeserializerState ctx) => new READER(ctx);
-            public WHICH which => (WHICH)ctx.ReadDataUShort(112U, (ushort)0);
-            public float Rpm => ctx.ReadDataFloat(0UL, 0F);
-            public float Slip => ctx.ReadDataFloat(32UL, 0F);
-            public float Compression => ctx.ReadDataFloat(64UL, 0F);
-            public CapnpGen.ContactMedium Contact => (CapnpGen.ContactMedium)ctx.ReadDataUShort(96UL, (ushort)0);
-            public CapnpGen.WheelExtended.READER Extended => which == WHICH.Extended ? ctx.ReadStruct(0, CapnpGen.WheelExtended.READER.create) : default;
+            public WHICH which => (WHICH)ctx.ReadDataUShort(16U, (ushort)0);
+            public CapnpGen.ContactMedium Contact => (CapnpGen.ContactMedium)ctx.ReadDataUShort(0UL, (ushort)0);
+            public CapnpGen.TyreState.READER Tyre => which == WHICH.Tyre ? ctx.ReadStruct(0, CapnpGen.TyreState.READER.create) : default;
+            public rpm.READER Rpm => new rpm.READER(ctx);
+            public slip.READER Slip => new slip.READER(ctx);
+            public compression.READER Compression => new compression.READER(ctx);
+            public steerAngle.READER SteerAngle => new steerAngle.READER(ctx);
+            public loadForce.READER LoadForce => new loadForce.READER(ctx);
+            public damperVelocity.READER DamperVelocity => new damperVelocity.READER(ctx);
             public torque.READER Torque => new torque.READER(ctx);
             public brakePressure.READER BrakePressure => new brakePressure.READER(ctx);
         }
@@ -2975,43 +3176,55 @@ namespace CapnpGen
         {
             public WRITER()
             {
-                this.SetStruct(4, 1);
+                this.SetStruct(7, 1);
             }
 
             public WHICH which
             {
-                get => (WHICH)this.ReadDataUShort(112U, (ushort)0);
-                set => this.WriteData(112U, (ushort)value, (ushort)0);
-            }
-
-            public float Rpm
-            {
-                get => this.ReadDataFloat(0UL, 0F);
-                set => this.WriteData(0UL, value, 0F);
-            }
-
-            public float Slip
-            {
-                get => this.ReadDataFloat(32UL, 0F);
-                set => this.WriteData(32UL, value, 0F);
-            }
-
-            public float Compression
-            {
-                get => this.ReadDataFloat(64UL, 0F);
-                set => this.WriteData(64UL, value, 0F);
+                get => (WHICH)this.ReadDataUShort(16U, (ushort)0);
+                set => this.WriteData(16U, (ushort)value, (ushort)0);
             }
 
             public CapnpGen.ContactMedium Contact
             {
-                get => (CapnpGen.ContactMedium)this.ReadDataUShort(96UL, (ushort)0);
-                set => this.WriteData(96UL, (ushort)value, (ushort)0);
+                get => (CapnpGen.ContactMedium)this.ReadDataUShort(0UL, (ushort)0);
+                set => this.WriteData(0UL, (ushort)value, (ushort)0);
             }
 
-            public CapnpGen.WheelExtended.WRITER Extended
+            public CapnpGen.TyreState.WRITER Tyre
             {
-                get => which == WHICH.Extended ? BuildPointer<CapnpGen.WheelExtended.WRITER>(0) : default;
+                get => which == WHICH.Tyre ? BuildPointer<CapnpGen.TyreState.WRITER>(0) : default;
                 set => Link(0, value);
+            }
+
+            public rpm.WRITER Rpm
+            {
+                get => Rewrap<rpm.WRITER>();
+            }
+
+            public slip.WRITER Slip
+            {
+                get => Rewrap<slip.WRITER>();
+            }
+
+            public compression.WRITER Compression
+            {
+                get => Rewrap<compression.WRITER>();
+            }
+
+            public steerAngle.WRITER SteerAngle
+            {
+                get => Rewrap<steerAngle.WRITER>();
+            }
+
+            public loadForce.WRITER LoadForce
+            {
+                get => Rewrap<loadForce.WRITER>();
+            }
+
+            public damperVelocity.WRITER DamperVelocity
+            {
+                get => Rewrap<damperVelocity.WRITER>();
             }
 
             public torque.WRITER Torque
@@ -3025,10 +3238,700 @@ namespace CapnpGen
             }
         }
 
+        [System.CodeDom.Compiler.GeneratedCode("capnpc-csharp", "1.3.0.0"), TypeId(0xcb60eb1f73b3654fUL)]
+        public class rpm : ICapnpSerializable
+        {
+            public const UInt64 typeId = 0xcb60eb1f73b3654fUL;
+            public enum WHICH : ushort
+            {
+                NoRpm = 0,
+                Value = 1,
+                undefined = 65535
+            }
+
+            void ICapnpSerializable.Deserialize(DeserializerState arg_)
+            {
+                var reader = READER.create(arg_);
+                switch (reader.which)
+                {
+                    case WHICH.NoRpm:
+                        which = reader.which;
+                        break;
+                    case WHICH.Value:
+                        Value = reader.Value;
+                        break;
+                }
+
+                applyDefaults();
+            }
+
+            private WHICH _which = WHICH.undefined;
+            private object _content;
+            public WHICH which
+            {
+                get => _which;
+                set
+                {
+                    if (value == _which)
+                        return;
+                    _which = value;
+                    switch (value)
+                    {
+                        case WHICH.NoRpm:
+                            break;
+                        case WHICH.Value:
+                            _content = 0F;
+                            break;
+                    }
+                }
+            }
+
+            public void serialize(WRITER writer)
+            {
+                writer.which = which;
+                switch (which)
+                {
+                    case WHICH.NoRpm:
+                        break;
+                    case WHICH.Value:
+                        writer.Value = Value.Value;
+                        break;
+                }
+            }
+
+            void ICapnpSerializable.Serialize(SerializerState arg_)
+            {
+                serialize(arg_.Rewrap<WRITER>());
+            }
+
+            public void applyDefaults()
+            {
+            }
+
+            public float? Value
+            {
+                get => _which == WHICH.Value ? (float? )_content : null;
+                set
+                {
+                    _which = WHICH.Value;
+                    _content = value;
+                }
+            }
+
+            public struct READER
+            {
+                readonly DeserializerState ctx;
+                public READER(DeserializerState ctx)
+                {
+                    this.ctx = ctx;
+                }
+
+                public static READER create(DeserializerState ctx) => new READER(ctx);
+                public static implicit operator DeserializerState(READER reader) => reader.ctx;
+                public static implicit operator READER(DeserializerState ctx) => new READER(ctx);
+                public WHICH which => (WHICH)ctx.ReadDataUShort(32U, (ushort)0);
+                public float Value => which == WHICH.Value ? ctx.ReadDataFloat(64UL, 0F) : default;
+            }
+
+            public class WRITER : SerializerState
+            {
+                public WRITER()
+                {
+                }
+
+                public WHICH which
+                {
+                    get => (WHICH)this.ReadDataUShort(32U, (ushort)0);
+                    set => this.WriteData(32U, (ushort)value, (ushort)0);
+                }
+
+                public float Value
+                {
+                    get => which == WHICH.Value ? this.ReadDataFloat(64UL, 0F) : default;
+                    set => this.WriteData(64UL, value, 0F);
+                }
+            }
+        }
+
+        [System.CodeDom.Compiler.GeneratedCode("capnpc-csharp", "1.3.0.0"), TypeId(0x8b8057ba6c9c59d9UL)]
+        public class slip : ICapnpSerializable
+        {
+            public const UInt64 typeId = 0x8b8057ba6c9c59d9UL;
+            public enum WHICH : ushort
+            {
+                NoSlip = 0,
+                Value = 1,
+                undefined = 65535
+            }
+
+            void ICapnpSerializable.Deserialize(DeserializerState arg_)
+            {
+                var reader = READER.create(arg_);
+                switch (reader.which)
+                {
+                    case WHICH.NoSlip:
+                        which = reader.which;
+                        break;
+                    case WHICH.Value:
+                        Value = reader.Value;
+                        break;
+                }
+
+                applyDefaults();
+            }
+
+            private WHICH _which = WHICH.undefined;
+            private object _content;
+            public WHICH which
+            {
+                get => _which;
+                set
+                {
+                    if (value == _which)
+                        return;
+                    _which = value;
+                    switch (value)
+                    {
+                        case WHICH.NoSlip:
+                            break;
+                        case WHICH.Value:
+                            _content = 0F;
+                            break;
+                    }
+                }
+            }
+
+            public void serialize(WRITER writer)
+            {
+                writer.which = which;
+                switch (which)
+                {
+                    case WHICH.NoSlip:
+                        break;
+                    case WHICH.Value:
+                        writer.Value = Value.Value;
+                        break;
+                }
+            }
+
+            void ICapnpSerializable.Serialize(SerializerState arg_)
+            {
+                serialize(arg_.Rewrap<WRITER>());
+            }
+
+            public void applyDefaults()
+            {
+            }
+
+            public float? Value
+            {
+                get => _which == WHICH.Value ? (float? )_content : null;
+                set
+                {
+                    _which = WHICH.Value;
+                    _content = value;
+                }
+            }
+
+            public struct READER
+            {
+                readonly DeserializerState ctx;
+                public READER(DeserializerState ctx)
+                {
+                    this.ctx = ctx;
+                }
+
+                public static READER create(DeserializerState ctx) => new READER(ctx);
+                public static implicit operator DeserializerState(READER reader) => reader.ctx;
+                public static implicit operator READER(DeserializerState ctx) => new READER(ctx);
+                public WHICH which => (WHICH)ctx.ReadDataUShort(48U, (ushort)0);
+                public float Value => which == WHICH.Value ? ctx.ReadDataFloat(96UL, 0F) : default;
+            }
+
+            public class WRITER : SerializerState
+            {
+                public WRITER()
+                {
+                }
+
+                public WHICH which
+                {
+                    get => (WHICH)this.ReadDataUShort(48U, (ushort)0);
+                    set => this.WriteData(48U, (ushort)value, (ushort)0);
+                }
+
+                public float Value
+                {
+                    get => which == WHICH.Value ? this.ReadDataFloat(96UL, 0F) : default;
+                    set => this.WriteData(96UL, value, 0F);
+                }
+            }
+        }
+
+        [System.CodeDom.Compiler.GeneratedCode("capnpc-csharp", "1.3.0.0"), TypeId(0xfcb55ed96b941006UL)]
+        public class compression : ICapnpSerializable
+        {
+            public const UInt64 typeId = 0xfcb55ed96b941006UL;
+            public enum WHICH : ushort
+            {
+                NoCompression = 0,
+                Value = 1,
+                undefined = 65535
+            }
+
+            void ICapnpSerializable.Deserialize(DeserializerState arg_)
+            {
+                var reader = READER.create(arg_);
+                switch (reader.which)
+                {
+                    case WHICH.NoCompression:
+                        which = reader.which;
+                        break;
+                    case WHICH.Value:
+                        Value = reader.Value;
+                        break;
+                }
+
+                applyDefaults();
+            }
+
+            private WHICH _which = WHICH.undefined;
+            private object _content;
+            public WHICH which
+            {
+                get => _which;
+                set
+                {
+                    if (value == _which)
+                        return;
+                    _which = value;
+                    switch (value)
+                    {
+                        case WHICH.NoCompression:
+                            break;
+                        case WHICH.Value:
+                            _content = 0F;
+                            break;
+                    }
+                }
+            }
+
+            public void serialize(WRITER writer)
+            {
+                writer.which = which;
+                switch (which)
+                {
+                    case WHICH.NoCompression:
+                        break;
+                    case WHICH.Value:
+                        writer.Value = Value.Value;
+                        break;
+                }
+            }
+
+            void ICapnpSerializable.Serialize(SerializerState arg_)
+            {
+                serialize(arg_.Rewrap<WRITER>());
+            }
+
+            public void applyDefaults()
+            {
+            }
+
+            public float? Value
+            {
+                get => _which == WHICH.Value ? (float? )_content : null;
+                set
+                {
+                    _which = WHICH.Value;
+                    _content = value;
+                }
+            }
+
+            public struct READER
+            {
+                readonly DeserializerState ctx;
+                public READER(DeserializerState ctx)
+                {
+                    this.ctx = ctx;
+                }
+
+                public static READER create(DeserializerState ctx) => new READER(ctx);
+                public static implicit operator DeserializerState(READER reader) => reader.ctx;
+                public static implicit operator READER(DeserializerState ctx) => new READER(ctx);
+                public WHICH which => (WHICH)ctx.ReadDataUShort(128U, (ushort)0);
+                public float Value => which == WHICH.Value ? ctx.ReadDataFloat(160UL, 0F) : default;
+            }
+
+            public class WRITER : SerializerState
+            {
+                public WRITER()
+                {
+                }
+
+                public WHICH which
+                {
+                    get => (WHICH)this.ReadDataUShort(128U, (ushort)0);
+                    set => this.WriteData(128U, (ushort)value, (ushort)0);
+                }
+
+                public float Value
+                {
+                    get => which == WHICH.Value ? this.ReadDataFloat(160UL, 0F) : default;
+                    set => this.WriteData(160UL, value, 0F);
+                }
+            }
+        }
+
         [System.CodeDom.Compiler.GeneratedCode("capnpc-csharp", "1.3.0.0"), TypeId(0xa27b8c37905d9204UL)]
-        public class torque : ICapnpSerializable
+        public class steerAngle : ICapnpSerializable
         {
             public const UInt64 typeId = 0xa27b8c37905d9204UL;
+            public enum WHICH : ushort
+            {
+                NoSteerAngle = 0,
+                Value = 1,
+                undefined = 65535
+            }
+
+            void ICapnpSerializable.Deserialize(DeserializerState arg_)
+            {
+                var reader = READER.create(arg_);
+                switch (reader.which)
+                {
+                    case WHICH.NoSteerAngle:
+                        which = reader.which;
+                        break;
+                    case WHICH.Value:
+                        Value = reader.Value;
+                        break;
+                }
+
+                applyDefaults();
+            }
+
+            private WHICH _which = WHICH.undefined;
+            private object _content;
+            public WHICH which
+            {
+                get => _which;
+                set
+                {
+                    if (value == _which)
+                        return;
+                    _which = value;
+                    switch (value)
+                    {
+                        case WHICH.NoSteerAngle:
+                            break;
+                        case WHICH.Value:
+                            _content = 0F;
+                            break;
+                    }
+                }
+            }
+
+            public void serialize(WRITER writer)
+            {
+                writer.which = which;
+                switch (which)
+                {
+                    case WHICH.NoSteerAngle:
+                        break;
+                    case WHICH.Value:
+                        writer.Value = Value.Value;
+                        break;
+                }
+            }
+
+            void ICapnpSerializable.Serialize(SerializerState arg_)
+            {
+                serialize(arg_.Rewrap<WRITER>());
+            }
+
+            public void applyDefaults()
+            {
+            }
+
+            public float? Value
+            {
+                get => _which == WHICH.Value ? (float? )_content : null;
+                set
+                {
+                    _which = WHICH.Value;
+                    _content = value;
+                }
+            }
+
+            public struct READER
+            {
+                readonly DeserializerState ctx;
+                public READER(DeserializerState ctx)
+                {
+                    this.ctx = ctx;
+                }
+
+                public static READER create(DeserializerState ctx) => new READER(ctx);
+                public static implicit operator DeserializerState(READER reader) => reader.ctx;
+                public static implicit operator READER(DeserializerState ctx) => new READER(ctx);
+                public WHICH which => (WHICH)ctx.ReadDataUShort(144U, (ushort)0);
+                public float Value => which == WHICH.Value ? ctx.ReadDataFloat(192UL, 0F) : default;
+            }
+
+            public class WRITER : SerializerState
+            {
+                public WRITER()
+                {
+                }
+
+                public WHICH which
+                {
+                    get => (WHICH)this.ReadDataUShort(144U, (ushort)0);
+                    set => this.WriteData(144U, (ushort)value, (ushort)0);
+                }
+
+                public float Value
+                {
+                    get => which == WHICH.Value ? this.ReadDataFloat(192UL, 0F) : default;
+                    set => this.WriteData(192UL, value, 0F);
+                }
+            }
+        }
+
+        [System.CodeDom.Compiler.GeneratedCode("capnpc-csharp", "1.3.0.0"), TypeId(0xd2044b8e7e75431bUL)]
+        public class loadForce : ICapnpSerializable
+        {
+            public const UInt64 typeId = 0xd2044b8e7e75431bUL;
+            public enum WHICH : ushort
+            {
+                NoLoadForce = 0,
+                Value = 1,
+                undefined = 65535
+            }
+
+            void ICapnpSerializable.Deserialize(DeserializerState arg_)
+            {
+                var reader = READER.create(arg_);
+                switch (reader.which)
+                {
+                    case WHICH.NoLoadForce:
+                        which = reader.which;
+                        break;
+                    case WHICH.Value:
+                        Value = reader.Value;
+                        break;
+                }
+
+                applyDefaults();
+            }
+
+            private WHICH _which = WHICH.undefined;
+            private object _content;
+            public WHICH which
+            {
+                get => _which;
+                set
+                {
+                    if (value == _which)
+                        return;
+                    _which = value;
+                    switch (value)
+                    {
+                        case WHICH.NoLoadForce:
+                            break;
+                        case WHICH.Value:
+                            _content = 0F;
+                            break;
+                    }
+                }
+            }
+
+            public void serialize(WRITER writer)
+            {
+                writer.which = which;
+                switch (which)
+                {
+                    case WHICH.NoLoadForce:
+                        break;
+                    case WHICH.Value:
+                        writer.Value = Value.Value;
+                        break;
+                }
+            }
+
+            void ICapnpSerializable.Serialize(SerializerState arg_)
+            {
+                serialize(arg_.Rewrap<WRITER>());
+            }
+
+            public void applyDefaults()
+            {
+            }
+
+            public float? Value
+            {
+                get => _which == WHICH.Value ? (float? )_content : null;
+                set
+                {
+                    _which = WHICH.Value;
+                    _content = value;
+                }
+            }
+
+            public struct READER
+            {
+                readonly DeserializerState ctx;
+                public READER(DeserializerState ctx)
+                {
+                    this.ctx = ctx;
+                }
+
+                public static READER create(DeserializerState ctx) => new READER(ctx);
+                public static implicit operator DeserializerState(READER reader) => reader.ctx;
+                public static implicit operator READER(DeserializerState ctx) => new READER(ctx);
+                public WHICH which => (WHICH)ctx.ReadDataUShort(224U, (ushort)0);
+                public float Value => which == WHICH.Value ? ctx.ReadDataFloat(256UL, 0F) : default;
+            }
+
+            public class WRITER : SerializerState
+            {
+                public WRITER()
+                {
+                }
+
+                public WHICH which
+                {
+                    get => (WHICH)this.ReadDataUShort(224U, (ushort)0);
+                    set => this.WriteData(224U, (ushort)value, (ushort)0);
+                }
+
+                public float Value
+                {
+                    get => which == WHICH.Value ? this.ReadDataFloat(256UL, 0F) : default;
+                    set => this.WriteData(256UL, value, 0F);
+                }
+            }
+        }
+
+        [System.CodeDom.Compiler.GeneratedCode("capnpc-csharp", "1.3.0.0"), TypeId(0xef975f83c5aeb9b3UL)]
+        public class damperVelocity : ICapnpSerializable
+        {
+            public const UInt64 typeId = 0xef975f83c5aeb9b3UL;
+            public enum WHICH : ushort
+            {
+                NoDamperVelocity = 0,
+                Value = 1,
+                undefined = 65535
+            }
+
+            void ICapnpSerializable.Deserialize(DeserializerState arg_)
+            {
+                var reader = READER.create(arg_);
+                switch (reader.which)
+                {
+                    case WHICH.NoDamperVelocity:
+                        which = reader.which;
+                        break;
+                    case WHICH.Value:
+                        Value = reader.Value;
+                        break;
+                }
+
+                applyDefaults();
+            }
+
+            private WHICH _which = WHICH.undefined;
+            private object _content;
+            public WHICH which
+            {
+                get => _which;
+                set
+                {
+                    if (value == _which)
+                        return;
+                    _which = value;
+                    switch (value)
+                    {
+                        case WHICH.NoDamperVelocity:
+                            break;
+                        case WHICH.Value:
+                            _content = 0F;
+                            break;
+                    }
+                }
+            }
+
+            public void serialize(WRITER writer)
+            {
+                writer.which = which;
+                switch (which)
+                {
+                    case WHICH.NoDamperVelocity:
+                        break;
+                    case WHICH.Value:
+                        writer.Value = Value.Value;
+                        break;
+                }
+            }
+
+            void ICapnpSerializable.Serialize(SerializerState arg_)
+            {
+                serialize(arg_.Rewrap<WRITER>());
+            }
+
+            public void applyDefaults()
+            {
+            }
+
+            public float? Value
+            {
+                get => _which == WHICH.Value ? (float? )_content : null;
+                set
+                {
+                    _which = WHICH.Value;
+                    _content = value;
+                }
+            }
+
+            public struct READER
+            {
+                readonly DeserializerState ctx;
+                public READER(DeserializerState ctx)
+                {
+                    this.ctx = ctx;
+                }
+
+                public static READER create(DeserializerState ctx) => new READER(ctx);
+                public static implicit operator DeserializerState(READER reader) => reader.ctx;
+                public static implicit operator READER(DeserializerState ctx) => new READER(ctx);
+                public WHICH which => (WHICH)ctx.ReadDataUShort(240U, (ushort)0);
+                public float Value => which == WHICH.Value ? ctx.ReadDataFloat(288UL, 0F) : default;
+            }
+
+            public class WRITER : SerializerState
+            {
+                public WRITER()
+                {
+                }
+
+                public WHICH which
+                {
+                    get => (WHICH)this.ReadDataUShort(240U, (ushort)0);
+                    set => this.WriteData(240U, (ushort)value, (ushort)0);
+                }
+
+                public float Value
+                {
+                    get => which == WHICH.Value ? this.ReadDataFloat(288UL, 0F) : default;
+                    set => this.WriteData(288UL, value, 0F);
+                }
+            }
+        }
+
+        [System.CodeDom.Compiler.GeneratedCode("capnpc-csharp", "1.3.0.0"), TypeId(0xdb53d21bcd6231e8UL)]
+        public class torque : ICapnpSerializable
+        {
+            public const UInt64 typeId = 0xdb53d21bcd6231e8UL;
             public enum WHICH : ushort
             {
                 NoTorque = 0,
@@ -3116,8 +4019,8 @@ namespace CapnpGen
                 public static READER create(DeserializerState ctx) => new READER(ctx);
                 public static implicit operator DeserializerState(READER reader) => reader.ctx;
                 public static implicit operator READER(DeserializerState ctx) => new READER(ctx);
-                public WHICH which => (WHICH)ctx.ReadDataUShort(128U, (ushort)0);
-                public float Value => which == WHICH.Value ? ctx.ReadDataFloat(160UL, 0F) : default;
+                public WHICH which => (WHICH)ctx.ReadDataUShort(320U, (ushort)0);
+                public float Value => which == WHICH.Value ? ctx.ReadDataFloat(352UL, 0F) : default;
             }
 
             public class WRITER : SerializerState
@@ -3128,22 +4031,22 @@ namespace CapnpGen
 
                 public WHICH which
                 {
-                    get => (WHICH)this.ReadDataUShort(128U, (ushort)0);
-                    set => this.WriteData(128U, (ushort)value, (ushort)0);
+                    get => (WHICH)this.ReadDataUShort(320U, (ushort)0);
+                    set => this.WriteData(320U, (ushort)value, (ushort)0);
                 }
 
                 public float Value
                 {
-                    get => which == WHICH.Value ? this.ReadDataFloat(160UL, 0F) : default;
-                    set => this.WriteData(160UL, value, 0F);
+                    get => which == WHICH.Value ? this.ReadDataFloat(352UL, 0F) : default;
+                    set => this.WriteData(352UL, value, 0F);
                 }
             }
         }
 
-        [System.CodeDom.Compiler.GeneratedCode("capnpc-csharp", "1.3.0.0"), TypeId(0xd2044b8e7e75431bUL)]
+        [System.CodeDom.Compiler.GeneratedCode("capnpc-csharp", "1.3.0.0"), TypeId(0xe01e2cc0644e08baUL)]
         public class brakePressure : ICapnpSerializable
         {
-            public const UInt64 typeId = 0xd2044b8e7e75431bUL;
+            public const UInt64 typeId = 0xe01e2cc0644e08baUL;
             public enum WHICH : ushort
             {
                 NoBrakePressure = 0,
@@ -3231,8 +4134,8 @@ namespace CapnpGen
                 public static READER create(DeserializerState ctx) => new READER(ctx);
                 public static implicit operator DeserializerState(READER reader) => reader.ctx;
                 public static implicit operator READER(DeserializerState ctx) => new READER(ctx);
-                public WHICH which => (WHICH)ctx.ReadDataUShort(144U, (ushort)0);
-                public float Value => which == WHICH.Value ? ctx.ReadDataFloat(192UL, 0F) : default;
+                public WHICH which => (WHICH)ctx.ReadDataUShort(336U, (ushort)0);
+                public float Value => which == WHICH.Value ? ctx.ReadDataFloat(384UL, 0F) : default;
             }
 
             public class WRITER : SerializerState
@@ -3243,43 +4146,37 @@ namespace CapnpGen
 
                 public WHICH which
                 {
-                    get => (WHICH)this.ReadDataUShort(144U, (ushort)0);
-                    set => this.WriteData(144U, (ushort)value, (ushort)0);
+                    get => (WHICH)this.ReadDataUShort(336U, (ushort)0);
+                    set => this.WriteData(336U, (ushort)value, (ushort)0);
                 }
 
                 public float Value
                 {
-                    get => which == WHICH.Value ? this.ReadDataFloat(192UL, 0F) : default;
-                    set => this.WriteData(192UL, value, 0F);
+                    get => which == WHICH.Value ? this.ReadDataFloat(384UL, 0F) : default;
+                    set => this.WriteData(384UL, value, 0F);
                 }
             }
         }
     }
 
-    [System.CodeDom.Compiler.GeneratedCode("capnpc-csharp", "1.3.0.0"), TypeId(0x9ae27747bcccb978UL)]
-    public class WheelExtended : ICapnpSerializable
+    [System.CodeDom.Compiler.GeneratedCode("capnpc-csharp", "1.3.0.0"), TypeId(0xfb56dbbcb612c161UL)]
+    public class TyreState : ICapnpSerializable
     {
-        public const UInt64 typeId = 0x9ae27747bcccb978UL;
+        public const UInt64 typeId = 0xfb56dbbcb612c161UL;
         void ICapnpSerializable.Deserialize(DeserializerState arg_)
         {
             var reader = READER.create(arg_);
-            SteerAngle = reader.SteerAngle;
-            LoadForce = reader.LoadForce;
-            DamperVelocity = reader.DamperVelocity;
-            TyrePressure = reader.TyrePressure;
-            TyreTemp = reader.TyreTemp;
-            TyreWear = reader.TyreWear;
+            Pressure = reader.Pressure;
+            Temperature = reader.Temperature;
+            Wear = reader.Wear;
             applyDefaults();
         }
 
         public void serialize(WRITER writer)
         {
-            writer.SteerAngle = SteerAngle;
-            writer.LoadForce = LoadForce;
-            writer.DamperVelocity = DamperVelocity;
-            writer.TyrePressure = TyrePressure;
-            writer.TyreTemp = TyreTemp;
-            writer.TyreWear = TyreWear;
+            writer.Pressure = Pressure;
+            writer.Temperature = Temperature;
+            writer.Wear = Wear;
         }
 
         void ICapnpSerializable.Serialize(SerializerState arg_)
@@ -3291,37 +4188,19 @@ namespace CapnpGen
         {
         }
 
-        public float SteerAngle
+        public float Pressure
         {
             get;
             set;
         }
 
-        public float LoadForce
+        public float Temperature
         {
             get;
             set;
         }
 
-        public float DamperVelocity
-        {
-            get;
-            set;
-        }
-
-        public float TyrePressure
-        {
-            get;
-            set;
-        }
-
-        public float TyreTemp
-        {
-            get;
-            set;
-        }
-
-        public float TyreWear
+        public float Wear
         {
             get;
             set;
@@ -3338,55 +4217,34 @@ namespace CapnpGen
             public static READER create(DeserializerState ctx) => new READER(ctx);
             public static implicit operator DeserializerState(READER reader) => reader.ctx;
             public static implicit operator READER(DeserializerState ctx) => new READER(ctx);
-            public float SteerAngle => ctx.ReadDataFloat(0UL, 0F);
-            public float LoadForce => ctx.ReadDataFloat(32UL, 0F);
-            public float DamperVelocity => ctx.ReadDataFloat(64UL, 0F);
-            public float TyrePressure => ctx.ReadDataFloat(96UL, 0F);
-            public float TyreTemp => ctx.ReadDataFloat(128UL, 0F);
-            public float TyreWear => ctx.ReadDataFloat(160UL, 0F);
+            public float Pressure => ctx.ReadDataFloat(0UL, 0F);
+            public float Temperature => ctx.ReadDataFloat(32UL, 0F);
+            public float Wear => ctx.ReadDataFloat(64UL, 0F);
         }
 
         public class WRITER : SerializerState
         {
             public WRITER()
             {
-                this.SetStruct(3, 0);
+                this.SetStruct(2, 0);
             }
 
-            public float SteerAngle
+            public float Pressure
             {
                 get => this.ReadDataFloat(0UL, 0F);
                 set => this.WriteData(0UL, value, 0F);
             }
 
-            public float LoadForce
+            public float Temperature
             {
                 get => this.ReadDataFloat(32UL, 0F);
                 set => this.WriteData(32UL, value, 0F);
             }
 
-            public float DamperVelocity
+            public float Wear
             {
                 get => this.ReadDataFloat(64UL, 0F);
                 set => this.WriteData(64UL, value, 0F);
-            }
-
-            public float TyrePressure
-            {
-                get => this.ReadDataFloat(96UL, 0F);
-                set => this.WriteData(96UL, value, 0F);
-            }
-
-            public float TyreTemp
-            {
-                get => this.ReadDataFloat(128UL, 0F);
-                set => this.WriteData(128UL, value, 0F);
-            }
-
-            public float TyreWear
-            {
-                get => this.ReadDataFloat(160UL, 0F);
-                set => this.WriteData(160UL, value, 0F);
             }
         }
     }

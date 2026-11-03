@@ -292,7 +292,8 @@ public class PublisherLoopbackTests
 
         var d1 = await first.Task.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.Equal(BodyDynamicsDeriver.Gravity, d1.Environment.Gravity); // standard gravity
-        Assert.Equal(101325f, d1.Environment.Pressure); // Pa (schema, CONVENTIONS C-3)
+        // no atmosphere until the host declares one (never zeros that read as vacuum)
+        Assert.Equal(CapnpGen.Environment.atmosphere.WHICH.NoAtmosphere, d1.Environment.Atmosphere.which);
         Assert.Equal(CapnpGen.ContactMedium.asphalt, d1.Environment.Medium);
 
         pub.SetEnvironment(gravity: 0f, airDensity: 0f, temperature: -270f,
@@ -301,7 +302,8 @@ public class PublisherLoopbackTests
 
         var d2 = await second.Task.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.Equal(0f, d2.Environment.Gravity, 5);
-        Assert.Equal(0f, d2.Environment.AirDensity, 5);
+        Assert.Equal(CapnpGen.Environment.atmosphere.WHICH.Known, d2.Environment.Atmosphere.which);
+        Assert.Equal(0f, d2.Environment.Atmosphere.Known.AirDensity, 5);
         Assert.Equal(CapnpGen.ContactMedium.vacuum, d2.Environment.Medium);
     }
 
