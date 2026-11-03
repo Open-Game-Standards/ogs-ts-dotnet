@@ -139,26 +139,8 @@ public sealed class TelemetryReceiver : IDisposable
                     if (!_socket.Poll(200_000, SelectMode.SelectRead)) continue; // 200 ms
                 }
                 len = _socket.ReceiveFrom(buf, ref from);
-                if (!Envelope.TryUnwrap(buf.AsMemory(0, len), out var type, out var payload))
-                {
-                    ForeignSkipped++;
-                    continue;
-                }
                 var src = (IPEndPoint)from;
-                var source = new IPEndPoint(src.Address, src.Port);
-                try
-                {
-                    DatagramReceived?.Invoke(type, len);
-                    DatagramReceivedFrom?.Invoke(source, type, len);
-                    RawDatagramReceived?.Invoke(source, buf.AsMemory(0, len));
-                }
-                catch (Exception ex) { HandlerErrors++; try { HandlerFaulted?.Invoke(ex); } catch (Exception) { } }
-                var root = MessageDecoder.DecodeRoot(payload.Span);
-                Dispatch(type, root, source);
-            }
-            catch (Capnp.DeserializationException)
-            {
-                DecodeErrors++;
+                Handle(new IPEndPoint(src.Address, src.Port), buf.AsMemory(0, len));
             }
             catch (SocketException)
             {
@@ -168,6 +150,39 @@ public sealed class TelemetryReceiver : IDisposable
             {
                 break; // socket closed by Dispose — clean shutdown, don't fault
             }
+        }
+    }
+
+    /// <summary>Handles a datagram as if it had arrived from
+    /// <paramref name="source"/>: the same events, counters and decoding as
+    /// the receive loop, with no network involved. For replaying a recording
+    /// into this receiver's handlers (recording.md) without sending it to
+    /// other receivers. Call from one thread at a time, and not while live
+    /// datagrams are arriving unless the handlers tolerate both.</summary>
+    public void Inject(IPEndPoint source, ReadOnlyMemory<byte> datagram) => Handle(source, datagram);
+
+    void Handle(IPEndPoint source, ReadOnlyMemory<byte> datagram)
+    {
+        if (!Envelope.TryUnwrap(datagram, out var type, out var payload))
+        {
+            ForeignSkipped++;
+            return;
+        }
+        try
+        {
+            DatagramReceived?.Invoke(type, datagram.Length);
+            DatagramReceivedFrom?.Invoke(source, type, datagram.Length);
+            RawDatagramReceived?.Invoke(source, datagram);
+        }
+        catch (Exception ex) { HandlerErrors++; try { HandlerFaulted?.Invoke(ex); } catch (Exception) { } }
+        try
+        {
+            var root = MessageDecoder.DecodeRoot(payload.Span);
+            Dispatch(type, root, source);
+        }
+        catch (Capnp.DeserializationException)
+        {
+            DecodeErrors++;
         }
     }
 

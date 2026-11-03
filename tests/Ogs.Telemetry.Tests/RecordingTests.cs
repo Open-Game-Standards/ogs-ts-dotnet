@@ -99,4 +99,22 @@ public class RecordingTests
             Assert.True(sources.Count >= 2); // the two recorded senders stay apart
         }
     }
+
+    [Fact]
+    public async Task PlayInto_Feeds_A_Receiver_Without_The_Network()
+    {
+        // never started: no socket traffic, only injected datagrams
+        using var receiver = new TelemetryReceiver(port: 41392, localInterface: IPAddress.Loopback);
+        var seen = new List<(IPEndPoint, double)>();
+        receiver.MotionReceivedFrom += (src, m) => seen.Add((src, m.Timestamp));
+        var records = new List<RecordedDatagram>
+        {
+            new(0, V4, Motion(1)),
+            new(2_000, V6, Motion(2)),
+            new(3_000, V4, new byte[] { 1, 2, 3 }), // foreign: skipped
+        };
+        await RecordingReplayer.PlayIntoAsync(records, receiver, speed: 4);
+        Assert.Equal(new[] { (V4, 1.0), (V6, 2.0) }, seen);
+        Assert.Equal(1, receiver.ForeignSkipped);
+    }
 }

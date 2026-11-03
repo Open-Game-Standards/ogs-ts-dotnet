@@ -121,7 +121,10 @@ Recordings ([recording.md](https://github.com/Open-Game-Standards/OGS-Telemetry-
 `RecordingWriter` captures a receiver's datagrams (`RawDatagramReceived`)
 into an `.ogsrec` file with arrival time and source, `RecordingReader`
 reads one back, and `RecordingReplayer` replays it at its original pace
-from one socket per recorded sender. `TelemetryReceive --record <file>`
+from one socket per recorded sender. `RecordingReplayer.PlayIntoAsync`
+plays it into one receiver's handlers instead (`TelemetryReceiver.Inject`),
+with nothing sent on the network: a tool can replay into itself without
+other rigs on the LAN seeing it. `TelemetryReceive --record <file>`
 records from the command line. `TelemetrySender` and `TelemetryReceiver`
 take the IPv6 group (`TelemetrySender.DefaultGroupV6`) as well as IPv4.
 

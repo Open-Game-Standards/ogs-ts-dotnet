@@ -172,5 +172,24 @@ public static class RecordingReplayer
             foreach (var s in senders.Values) s.Dispose();
         }
     }
+
+    /// <summary>Plays a recording into one receiver's handlers at its
+    /// original pace (<see cref="TelemetryReceiver.Inject"/>), each record
+    /// from its recorded source. Nothing is sent on the network, so no other
+    /// receiver sees it.</summary>
+    public static async Task PlayIntoAsync(IReadOnlyList<RecordedDatagram> records,
+        TelemetryReceiver receiver, double speed = 1.0, CancellationToken cancellation = default)
+    {
+        if (records.Count == 0) return;
+        if (speed <= 0) throw new ArgumentOutOfRangeException(nameof(speed));
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        long first = records[0].ArrivalMicros;
+        foreach (var r in records)
+        {
+            double wait = (r.ArrivalMicros - first) / 1e6 / speed - clock.Elapsed.TotalSeconds;
+            if (wait > 0) await Task.Delay(TimeSpan.FromSeconds(wait), cancellation).ConfigureAwait(false);
+            receiver.Inject(r.Source, r.Datagram);
+        }
+    }
 }
 }
