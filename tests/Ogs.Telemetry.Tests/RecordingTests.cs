@@ -48,11 +48,7 @@ public class RecordingTests
     [Fact]
     public void Reads_The_Corpus_Sample()
     {
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "Ogs.Telemetry.slnx")))
-            dir = dir.Parent;
-        var path = Path.Combine(dir!.Parent!.FullName, "OGS-Telemetry-Standard", "conformance",
-                                "recordings", "sample.ogsrec");
+        var path = Path.Combine(StandardCorpus.Dir("recordings"), "sample.ogsrec");
         var (start, records) = RecordingReader.Read(path);
         Assert.Equal(ConformanceVectors.SessionStartUnixUs, start);
         Assert.Equal(5, records.Count);
@@ -88,7 +84,7 @@ public class RecordingTests
         };
         for (int i = 0; i < 20 && !done.Task.IsCompleted; i++)
         {
-            await RecordingReplayer.ReplayAsync(records, port: port, speed: 10);
+            await RecordingReplayer.ReplayAsync(records, port: port, speed: 10, localInterface: IPAddress.Loopback);
             await Task.Delay(50);
         }
         await done.Task.WaitAsync(TimeSpan.FromSeconds(5));

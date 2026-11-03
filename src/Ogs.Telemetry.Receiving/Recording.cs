@@ -147,9 +147,11 @@ public static class RecordingReader
 /// recorded source (recording.md § Replay).</summary>
 public static class RecordingReplayer
 {
+    /// <param name="localInterface">Egress interface for the replay, as for
+    /// <see cref="TelemetrySender"/>; null = the OS default route.</param>
     public static async Task ReplayAsync(IReadOnlyList<RecordedDatagram> records,
         string group = "239.255.17.17", int port = 40123, double speed = 1.0,
-        CancellationToken cancellation = default)
+        CancellationToken cancellation = default, IPAddress? localInterface = null)
     {
         if (records.Count == 0) return;
         if (speed <= 0) throw new ArgumentOutOfRangeException(nameof(speed));
@@ -163,7 +165,7 @@ public static class RecordingReplayer
                 double wait = (r.ArrivalMicros - first) / 1e6 / speed - clock.Elapsed.TotalSeconds;
                 if (wait > 0) await Task.Delay(TimeSpan.FromSeconds(wait), cancellation).ConfigureAwait(false);
                 if (!senders.TryGetValue(r.Source, out var sender))
-                    senders[r.Source] = sender = new TelemetrySender(group, port);
+                    senders[r.Source] = sender = new TelemetrySender(group, port, localInterface: localInterface);
                 sender.Send(r.Datagram);
             }
         }

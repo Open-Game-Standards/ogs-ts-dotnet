@@ -7,13 +7,7 @@ using Xunit;
 /// datagram a receiver must survive, checked against its expectation.</summary>
 public class NegativeCorpusTests
 {
-    static string Dir(string sub)
-    {
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "Ogs.Telemetry.slnx")))
-            dir = dir.Parent;
-        return Path.Combine(dir!.Parent!.FullName, "OGS-Telemetry-Standard", "conformance", sub);
-    }
+    static string Dir(string sub) => StandardCorpus.Dir(sub);
 
     static byte[] Hex(string path) =>
         Convert.FromHexString(string.Concat(File.ReadAllLines(path).Select(l => l.Trim())));
