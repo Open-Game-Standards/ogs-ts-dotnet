@@ -329,4 +329,23 @@ var options = new System.Text.Json.JsonSerializerOptions
 };
 File.WriteAllText(Path.Combine(outDir, "manifest.json"),
     System.Text.Json.JsonSerializer.Serialize(manifest, options) + "\n");
+
+// Sample recording (recording.md): corpus vectors from two senders, one
+// IPv4 and one IPv6, at fixed arrival times.
+var recDir = Path.Combine(outDir, "recordings");
+Directory.CreateDirectory(recDir);
+var vectors = ConformanceVectors.All().ToDictionary(v => v.Id, v => v.Encode());
+var simA = new System.Net.IPEndPoint(System.Net.IPAddress.Parse("192.168.1.10"), 50001);
+var simB = new System.Net.IPEndPoint(System.Net.IPAddress.Parse("fe80::1"), 50002);
+using (var rec = new RecordingWriter(File.Create(Path.Combine(recDir, "sample.ogsrec")),
+                                     ConformanceVectors.SessionStartUnixUs))
+{
+    rec.Write(0, simA, vectors["discovery-minimal"]);
+    rec.Write(1_000, simB, vectors["discovery-identity"]);
+    rec.Write(16_667, simA, vectors["motion-pose"]);
+    rec.Write(17_000, simB, vectors["motion-wheel"]);
+    rec.Write(33_333, simA, vectors["event-impact"]);
+}
+Console.WriteLine("  recordings/sample.ogsrec: 5 records from two senders");
+
 Console.WriteLine($"corpus written to {Path.GetFullPath(outDir)}");

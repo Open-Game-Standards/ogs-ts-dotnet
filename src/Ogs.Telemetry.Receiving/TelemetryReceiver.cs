@@ -49,6 +49,11 @@ public sealed class TelemetryReceiver : IDisposable
     /// envelope (implementation-udp.md § Sender size envelope).</summary>
     public event Action<IPEndPoint, FrameType, int>? DatagramReceivedFrom;
 
+    /// <summary>Every OMT1 datagram as received, envelope included, with
+    /// its source, for recorders (RecordingWriter). The memory is the
+    /// receive buffer: copy it to keep it past the handler.</summary>
+    public event Action<IPEndPoint, ReadOnlyMemory<byte>>? RawDatagramReceived;
+
     /// <summary>Completes when the receive loop has exited — after Dispose,
     /// or if it ever faults. Dispose observes faults, so a clean shutdown
     /// completes successfully; hosts may await this.</summary>
@@ -145,6 +150,7 @@ public sealed class TelemetryReceiver : IDisposable
                 {
                     DatagramReceived?.Invoke(type, len);
                     DatagramReceivedFrom?.Invoke(source, type, len);
+                    RawDatagramReceived?.Invoke(source, buf.AsMemory(0, len));
                 }
                 catch (Exception ex) { HandlerErrors++; try { HandlerFaulted?.Invoke(ex); } catch (Exception) { } }
                 var root = MessageDecoder.DecodeRoot(payload.Span);

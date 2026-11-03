@@ -8,6 +8,10 @@ using CapnpGen;
 // frame.
 
 using var receiver = new TelemetryReceiver();
+// --record <file.ogsrec>: capture the stream as received (recording.md)
+int recordAt = Array.IndexOf(args, "--record");
+using var recorder = recordAt >= 0 && recordAt + 1 < args.Length
+    ? RecordingWriter.Create(args[recordAt + 1]).Attach(receiver) : null;
 var printedDiscovery = false;
 long motionSeen = 0;
 var motionPerObject = new Dictionary<string, long>();

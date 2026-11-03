@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../Ogs.Telemetry/Ogs.Telemetry.csproj" />
+    <ProjectReference Include="../Ogs.Telemetry.Receiving/Ogs.Telemetry.Receiving.csproj" />
   </ItemGroup>
 
 </Project>

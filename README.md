@@ -117,6 +117,14 @@ frame for gravity that varies by position or faster than discovery.
 `BodyDynamicsDeriver.GravityVector` from it so derived specific force
 reacts to the same gravity.
 
+Recordings ([recording.md](https://github.com/Open-Game-Standards/OGS-Telemetry-Standard/blob/main/recording.md)):
+`RecordingWriter` captures a receiver's datagrams (`RawDatagramReceived`)
+into an `.ogsrec` file with arrival time and source, `RecordingReader`
+reads one back, and `RecordingReplayer` replays it at its original pace
+from one socket per recorded sender. `TelemetryReceive --record <file>`
+records from the command line. `TelemetrySender` and `TelemetryReceiver`
+take the IPv6 group (`TelemetrySender.DefaultGroupV6`) as well as IPv4.
+
 Atmosphere: discovery declares none (`noAtmosphere`) until `SetEnvironment`
 gives air density, temperature and pressure, which ride together as
 `Environment.atmosphere.known`; a game without an atmosphere model leaves
