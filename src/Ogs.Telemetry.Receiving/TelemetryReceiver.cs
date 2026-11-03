@@ -63,22 +63,34 @@ public sealed class TelemetryReceiver : IDisposable
     public event Action<Exception>? HandlerFaulted;
     public long HandlerErrors { get; private set; }
 
+    /// <param name="group">IPv4 group (default) or the IPv6 group
+    /// (<see cref="TelemetrySender.DefaultGroupV6"/>); receivers SHOULD run
+    /// one of each so IPv6-only senders are found.</param>
     /// <param name="localInterface">NIC to join the group on, as that
-    /// interface's local IPv4 address. Left null, the OS default route
+    /// interface's local IPv4 address (IPv6: an address whose ScopeId is
+    /// the interface index). Left null, the OS default route
     /// picks the interface — on a multi-homed host that can silently join
     /// on an interface with no path to the LAN. Pass the interface you
     /// want when the host has more than one.</param>
     public TelemetryReceiver(string group = "239.255.17.17", int port = 40123,
                      IPAddress? localInterface = null)
     {
-        _socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+        var address = IPAddress.Parse(group);
+        bool v6 = address.AddressFamily == AddressFamily.InterNetworkV6;
+        _socket = new Socket(address.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
         _socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
         TryEnableReusePort(_socket);
-        _socket.Bind(new IPEndPoint(IPAddress.Any, port));
-        _socket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.AddMembership,
-            localInterface is null
-                ? new MulticastOption(IPAddress.Parse(group))
-                : new MulticastOption(IPAddress.Parse(group), localInterface));
+        _socket.Bind(new IPEndPoint(v6 ? IPAddress.IPv6Any : IPAddress.Any, port));
+        if (v6)
+            // link-local group: join on the interface whose index is the
+            // address's ScopeId (0 = the system's default interface)
+            _socket.SetSocketOption(SocketOptionLevel.IPv6, SocketOptionName.AddMembership,
+                new IPv6MulticastOption(address, localInterface?.ScopeId ?? 0));
+        else
+            _socket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.AddMembership,
+                localInterface is null
+                    ? new MulticastOption(address)
+                    : new MulticastOption(address, localInterface));
     }
 
     // SO_REUSEADDR alone lets a second bind to the same port succeed on
@@ -110,7 +122,8 @@ public sealed class TelemetryReceiver : IDisposable
     void ReceiveLoop(CancellationToken ct)
     {
         var buf = new byte[65536];
-        EndPoint from = new IPEndPoint(IPAddress.Any, 0);
+        EndPoint from = new IPEndPoint(_socket.AddressFamily == AddressFamily.InterNetworkV6
+            ? IPAddress.IPv6Any : IPAddress.Any, 0);
         while (!ct.IsCancellationRequested)
         {
             try
