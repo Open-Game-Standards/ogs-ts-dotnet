@@ -98,10 +98,11 @@ public class CapnpRoundtripTests
         var ws = dp.InitWheel();
         ws.Rpm = 1200f; ws.Contact = ContactMedium.Gravel;
         ws.InitExtended().TyreWear = 0.5f;
+        var brake = ws.BrakePressure; brake.Value = 2.5e6f;   // torque stays noTorque
         var jet = new DrivePoint { Id = 1 };
         jet.InitJet().Thrust = 4000f;
         state.DrivePoints = new List<DrivePoint> { dp, jet };
-        state.Channels = new List<ChannelValue> { new() { Id = 9, Text = "drift" } };
+        state.Texts = new List<TextValue> { new() { Id = 9, Text = "drift" } };
 
         var d = CapnpGen.DiscoveryFrame.READER.create(Decode(new DiscoveryFrame
             { Objects = new List<ObjectDescriptor> { obj } }));
@@ -122,7 +123,10 @@ public class CapnpRoundtripTests
         Assert.Equal(0.5f, o.DrivePoints[0].Wheel.Extended.TyreWear);
         Assert.Equal(CapnpGen.DrivePoint.WHICH.Jet, o.DrivePoints[1].which);
         Assert.Equal(4000f, o.DrivePoints[1].Jet.Thrust);
-        Assert.Equal(CapnpGen.ChannelValue.WHICH.Text, o.Channels[0].which);
-        Assert.Equal("drift", o.Channels[0].Text);
+        Assert.Equal(CapnpGen.WheelState.brakePressure.WHICH.Value, o.DrivePoints[0].Wheel.BrakePressure.which);
+        Assert.Equal(2.5e6f, o.DrivePoints[0].Wheel.BrakePressure.Value);
+        Assert.Equal(CapnpGen.WheelState.torque.WHICH.NoTorque, o.DrivePoints[0].Wheel.Torque.which);
+        Assert.Equal(9, o.Texts[0].Id);
+        Assert.Equal("drift", o.Texts[0].Text);
     }
 }

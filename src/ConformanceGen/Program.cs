@@ -165,7 +165,7 @@ var described = new Dictionary<string, (string frameType, string description, ob
             {
                 new { id = 1, name = "session.track", type = "text" },
                 new { id = 2, name = "vehicle.speed", unit = "m/s", type = "number" },
-            }, values = new object[] { new { id = 1, text = "Test Ring" } } } },
+            }, texts = new object[] { new { id = 1, text = "Test Ring" } } } },
             generation = ConformanceVectors.PagedGeneration, page = 1, pageCount = 2,
         }),
     ["motion-parts-p0"] = ("motion",
@@ -197,11 +197,26 @@ var described = new Dictionary<string, (string frameType, string description, ob
             objects = new[] { new { name = "obj", type = "aircraft", primary = true } },
             instanceLabel = "Rig 2", host = "sim-pc",
         }),
+    ["motion-wheel"] = ("motion",
+        "Wheel drive point measuring torque but not brake pressure: named optionality " +
+        "unions torque.value selected, brakePressure left at noBrakePressure",
+        new
+        {
+            timestamp = 8.25,
+            objects = new[] { new { name = "obj",
+                position = new { x = 2.0, y = 0.5, z = 1.0 },
+                orientation = new { w = 1.0 },
+                drivePoints = new[] { new { wheel = new
+                {
+                    rpm = 1200.0, slip = 0.0625, compression = 0.03125, contact = "asphalt",
+                    torque = new { value = 850.0 },
+                } } } } },
+        }),
 };
 
 var manifest = new
 {
-    corpusVersion = 7,
+    corpusVersion = 8,
     schemaVersion = 1,
     envelope = new { magic = "OMT1", headerBytes = 8 },
     floatRule = "all floats in this corpus are float32-exact; implementations compare exactly",

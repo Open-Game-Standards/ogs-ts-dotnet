@@ -104,6 +104,16 @@ receiver.MotionReceivedFrom += (source, m) =>
                     ? $"{ch.Name}={c.Boolean}"
                     : $"{ch.Name}={c.Number:F2}";
             }));
+        // text channels ride TextValue lists
+        var texts = tables is null ? "" : string.Join(" ", primary.Texts
+            .Where(t => tables.TryGetChannel(m.Generation, primary.Name ?? "", t.Id, out var known)
+                        && known.AcceptsText)
+            .Select(t =>
+            {
+                tables.TryGetChannel(m.Generation, primary.Name ?? "", t.Id, out var ch);
+                return $"{ch.Name}=\"{t.Text}\"";
+            }));
+        if (texts.Length > 0) vals = vals.Length > 0 ? vals + " " + texts : texts;
         var (yaw, pitch, roll) = ToEulerDegrees(q);
         // effective gravity: shown only when the object carries its own
         var local = primary.LocalGravity.which == MotionObject.localGravity.WHICH.Vector

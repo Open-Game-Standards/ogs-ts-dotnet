@@ -35,9 +35,13 @@ public sealed class DescriptorTables
         {
             CapnpGen.ChannelType.number => variant == CapnpGen.ChannelValue.WHICH.Number,
             CapnpGen.ChannelType.boolean => variant == CapnpGen.ChannelValue.WHICH.Boolean,
-            CapnpGen.ChannelType.text => variant == CapnpGen.ChannelValue.WHICH.Text,
+            CapnpGen.ChannelType.text => false, // text rides TextValue
             _ => true,
         };
+
+        /// <summary>False when a TextValue arrives for a channel declared
+        /// number or boolean.</summary>
+        public bool AcceptsText => Type is CapnpGen.ChannelType.text or CapnpGen.ChannelType.unspecified;
         public bool HasRange { get; internal set; }
         public double Min { get; internal set; }
         public double Max { get; internal set; }
@@ -128,12 +132,10 @@ public sealed class DescriptorTables
                 };
             }
             foreach (var v in o.Values)
-                obj.Values[v.Id] = v.which switch
-                {
-                    CapnpGen.ChannelValue.WHICH.Boolean => v.Boolean,
-                    CapnpGen.ChannelValue.WHICH.Text => v.Text ?? "",
-                    _ => (object)(double)v.Number,
-                };
+                obj.Values[v.Id] = v.which == CapnpGen.ChannelValue.WHICH.Boolean
+                    ? v.Boolean : (object)(double)v.Number;
+            foreach (var t in o.Texts)
+                obj.Values[t.Id] = t.Text ?? "";
         }
         return gen;
     }

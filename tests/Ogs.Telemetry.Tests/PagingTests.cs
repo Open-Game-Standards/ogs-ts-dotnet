@@ -29,6 +29,7 @@ public class PagingTests
             },
             Channels = new List<ChannelDescriptor>(),
             Values = new List<ChannelValue>(),
+            Texts = new List<TextValue>(),
         };
         for (int i = 0; i < channels; i++)
             obj.Channels!.Add(new ChannelDescriptor
@@ -37,7 +38,7 @@ public class PagingTests
                 Description = $"Simulator channel number {i} with a realistic description",
             });
         for (int i = 0; i < values; i++)
-            obj.Values!.Add(new ChannelValue { Id = (ushort)i, Text = $"label {i}" });
+            obj.Texts!.Add(new TextValue { Id = (ushort)i, Text = $"label {i}" });
         return obj;
     }
 
@@ -94,7 +95,7 @@ public class PagingTests
         Assert.Equal("label 2", obj.Values[2]);
 
         // session values ride their own page
-        var valuePages = pages.Where(p => p.Objects!.Any(o => o.Values is { Count: > 0 })).ToList();
+        var valuePages = pages.Where(p => p.Objects!.Any(o => o.Texts is { Count: > 0 })).ToList();
         Assert.All(valuePages, p => Assert.Null(p.Objects![0].Channels));
     }
 
