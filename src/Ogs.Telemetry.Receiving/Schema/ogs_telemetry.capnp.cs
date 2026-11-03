@@ -691,6 +691,7 @@ namespace CapnpGen
             PageCount = reader.PageCount;
             InstanceLabel = reader.InstanceLabel;
             Host = reader.Host;
+            MotionRateHz = reader.MotionRateHz;
             applyDefaults();
         }
 
@@ -706,6 +707,7 @@ namespace CapnpGen
             writer.PageCount = PageCount;
             writer.InstanceLabel = InstanceLabel;
             writer.Host = Host;
+            writer.MotionRateHz = MotionRateHz;
         }
 
         void ICapnpSerializable.Serialize(SerializerState arg_)
@@ -777,6 +779,12 @@ namespace CapnpGen
             set;
         }
 
+        public float MotionRateHz
+        {
+            get;
+            set;
+        }
+
         public struct READER
         {
             readonly DeserializerState ctx;
@@ -798,6 +806,7 @@ namespace CapnpGen
             public ushort PageCount => ctx.ReadDataUShort(128UL, (ushort)0);
             public string InstanceLabel => ctx.ReadText(3, null);
             public string Host => ctx.ReadText(4, null);
+            public float MotionRateHz => ctx.ReadDataFloat(160UL, 0F);
         }
 
         public class WRITER : SerializerState
@@ -865,6 +874,12 @@ namespace CapnpGen
             {
                 get => this.ReadText(4, null);
                 set => this.WriteText(4, value, null);
+            }
+
+            public float MotionRateHz
+            {
+                get => this.ReadDataFloat(160UL, 0F);
+                set => this.WriteData(160UL, value, 0F);
             }
         }
     }

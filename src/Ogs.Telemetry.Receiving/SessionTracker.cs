@@ -45,6 +45,14 @@ public sealed class SessionTracker
         public string InstanceLabel { get; internal set; } = "";
         public string Host { get; internal set; } = "";
         public long SessionStartUnixUs { get; internal set; }
+        /// <summary>Declared motion rate, Hz; 0 = not declared.</summary>
+        public float MotionRateHz { get; internal set; }
+
+        /// <summary>How long without motion before the session is stale:
+        /// 5 tick intervals of the declared rate, 1 s when undeclared
+        /// (implementation-udp.md § Liveness and session end).</summary>
+        public TimeSpan StaleAfter => MotionRateHz > 0
+            ? TimeSpan.FromSeconds(5.0 / MotionRateHz) : TimeSpan.FromSeconds(1);
         /// <summary>This sender's descriptor tables. Read them on the
         /// receive thread (they are not thread-safe).</summary>
         public DescriptorTables Tables { get; } = new();
@@ -158,6 +166,7 @@ public sealed class SessionTracker
             session.GameName = d.GameName ?? "";
             session.InstanceLabel = d.InstanceLabel ?? "";
             session.Host = d.Host ?? "";
+            session.MotionRateHz = d.MotionRateHz;
             session.SessionStartUnixUs = d.SessionStartUnixUs;
             session.LastFrame = now;
         }

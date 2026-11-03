@@ -195,13 +195,14 @@ var described = new Dictionary<string, (string frameType, string description, ob
         }),
     ["discovery-identity"] = ("discovery",
         "Sender instance identity for session pickers and pinning: instanceLabel and host; " +
+        "a declared motion rate; " +
         "an environment without an atmosphere model (noAtmosphere)",
         new
         {
             schemaVersion = 1, gameName = "conformance", sessionStartUnixUs = sessionUs,
             environment = new { gravity = 9.5, medium = "asphalt" }, // no atmosphere model
             objects = new[] { new { name = "obj", type = "aircraft", primary = true } },
-            instanceLabel = "Rig 2", host = "sim-pc",
+            instanceLabel = "Rig 2", host = "sim-pc", motionRateHz = 60.0,
         }),
     ["motion-wheel"] = ("motion",
         "Wheel drive point measuring rpm, slip, compression and torque: each a named " +
@@ -297,7 +298,7 @@ var described = new Dictionary<string, (string frameType, string description, ob
 
 var manifest = new
 {
-    corpusVersion = 9,
+    corpusVersion = 10,
     schemaVersion = 1,
     envelope = new { magic = "OMT1", headerBytes = 8 },
     floatRule = "all floats in this corpus are float32-exact; implementations compare exactly",

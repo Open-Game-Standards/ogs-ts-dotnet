@@ -40,6 +40,7 @@ receiver.DiscoveryReceivedFrom += (source, d) =>
         MathF.Abs(sessionGravity.Length() - d.Environment.Gravity) > 1e-3f * MathF.Max(1f, d.Environment.Gravity))
         Warn($"gravity {d.Environment.Gravity} != |gravityVector| {sessionGravity.Length():F3}");
     Console.WriteLine($"Discovery: game={d.GameName} instance='{d.InstanceLabel}' host='{d.Host}' " +
+                      $"rate={(d.MotionRateHz > 0 ? $"{d.MotionRateHz:0.#} Hz" : "undeclared")} " +
                       $"from={source} schema={d.SchemaVersion} " +
                       $"generation={generation.Number} pages={generation.PageCount} " +
                       $"objects={generation.Objects.Count} medium={d.Environment.Medium} " +
