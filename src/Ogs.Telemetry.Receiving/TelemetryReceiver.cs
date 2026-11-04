@@ -68,15 +68,27 @@ public sealed class TelemetryReceiver : IDisposable
     public event Action<Exception>? HandlerFaulted;
     public long HandlerErrors { get; private set; }
 
+    /// <summary>The group for traffic pinned to the loopback interface: demos
+    /// and tests. Never send over loopback on the standard group: on Windows
+    /// that moves the group's default-route traffic on this host onto
+    /// loopback, whatever the port, and it stays moved after the sender
+    /// closes, so a game's stream stops reaching other machines.</summary>
+    public const string LoopbackGroup = "239.255.17.99";
+    /// <summary>The IPv6 counterpart of <see cref="LoopbackGroup"/>.</summary>
+    public const string LoopbackGroupV6 = "ff12::4f47:5499";
+
     /// <param name="group">IPv4 group (default) or the IPv6 group
     /// (<see cref="TelemetrySender.DefaultGroupV6"/>); receivers SHOULD run
     /// one of each so IPv6-only senders are found.</param>
     /// <param name="localInterface">NIC to join the group on, as that
     /// interface's local IPv4 address (IPv6: an address whose ScopeId is
-    /// the interface index). Left null, the OS default route
-    /// picks the interface — on a multi-homed host that can silently join
-    /// on an interface with no path to the LAN. Pass the interface you
-    /// want when the host has more than one.</param>
+    /// the interface index). Left null, IPv4 joins on the interface of the
+    /// default route and IPv6 on the system's default interface — on a
+    /// multi-homed host that can silently join on an interface with no path
+    /// to the LAN. Pass the interface you want when the host has more than
+    /// one. An IPv4 receiver also joins on loopback, so it keeps hearing
+    /// senders on this host if their traffic moves there (see
+    /// <see cref="LoopbackGroup"/>).</param>
     public TelemetryReceiver(string group = "239.255.17.17", int port = 40123,
                      IPAddress? localInterface = null)
     {
@@ -92,10 +104,66 @@ public sealed class TelemetryReceiver : IDisposable
             _socket.SetSocketOption(SocketOptionLevel.IPv6, SocketOptionName.AddMembership,
                 new IPv6MulticastOption(address, localInterface?.ScopeId ?? 0));
         else
-            _socket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.AddMembership,
-                localInterface is null
-                    ? new MulticastOption(address)
-                    : new MulticastOption(address, localInterface));
+            JoinIPv4(address, localInterface);
+    }
+
+    void JoinIPv4(IPAddress group, IPAddress? localInterface)
+    {
+        if (localInterface is not null)
+        {
+            Join(new MulticastOption(group, localInterface));
+        }
+        else if (!TryJoinOnDefaultRoute(group))
+        {
+            Join(new MulticastOption(group)); // the OS chooses
+        }
+        // Best-effort: Linux often ships with multicast off on loopback, and
+        // the OS's own choice above may already have been loopback.
+        if (localInterface is null || !IPAddress.IsLoopback(localInterface))
+        {
+            try { Join(new MulticastOption(group, IPAddress.Loopback)); }
+            catch (SocketException) { }
+        }
+    }
+
+    bool TryJoinOnDefaultRoute(IPAddress group)
+    {
+        // Named rather than left to the OS: once a group's traffic has moved
+        // to loopback (see LoopbackGroup), the OS's choice for it is loopback
+        // too, and senders on other machines would go unheard.
+        var nic = DefaultRouteAddress();
+        if (nic is null) return false;
+        try
+        {
+            Join(new MulticastOption(group, nic));
+            return true;
+        }
+        catch (SocketException)
+        {
+            return false;
+        }
+    }
+
+    void Join(MulticastOption option) =>
+        _socket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.AddMembership, option);
+
+    /// <summary>This host's address on its IPv4 default route, or null when
+    /// it has none. Connecting a UDP socket only looks up the route (and
+    /// that of a unicast address, which multicast traffic can't move):
+    /// nothing is sent. 192.0.2.1 is reserved for documentation (RFC 5737).</summary>
+    static IPAddress? DefaultRouteAddress()
+    {
+        try
+        {
+            using var probe = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+            probe.Connect(new IPEndPoint(IPAddress.Parse("192.0.2.1"), 9));
+            var address = ((IPEndPoint)probe.LocalEndPoint!).Address;
+            return address.Equals(IPAddress.Any) || IPAddress.IsLoopback(address) ? null : address;
+        }
+        catch (SocketException)
+        {
+            return null;
+        }
     }
 
     // SO_REUSEADDR alone lets a second bind to the same port succeed on

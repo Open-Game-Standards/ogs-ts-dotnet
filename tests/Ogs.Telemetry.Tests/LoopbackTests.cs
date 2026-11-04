@@ -11,7 +11,7 @@ public class LoopbackTests
     public async Task Sender_And_Receiver_Roundtrip_Over_Multicast()
     {
         const int port = 41235; // away from the default 40123 to avoid interference
-        using var receiver = new TelemetryReceiver(port: port, localInterface: IPAddress.Loopback);
+        using var receiver = new TelemetryReceiver(group: TelemetryReceiver.LoopbackGroup, port: port, localInterface: IPAddress.Loopback);
         var discovery = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
         var motion = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
         var evnt = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -28,7 +28,7 @@ public class LoopbackTests
         };
         receiver.Start();
 
-        using var sender = new TelemetrySender(port: port, localInterface: IPAddress.Loopback);
+        using var sender = new TelemetrySender(group: TelemetryReceiver.LoopbackGroup, port: port, localInterface: IPAddress.Loopback);
 
         sender.Send(FrameType.Discovery, new Schema.DiscoveryFrame
         {

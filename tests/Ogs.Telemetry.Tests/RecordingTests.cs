@@ -62,7 +62,7 @@ public class RecordingTests
     public async Task Replay_Reaches_A_Receiver_From_One_Socket_Per_Recorded_Source()
     {
         const int port = 41391;
-        using var receiver = new TelemetryReceiver(port: port, localInterface: IPAddress.Loopback);
+        using var receiver = new TelemetryReceiver(group: TelemetryReceiver.LoopbackGroup, port: port, localInterface: IPAddress.Loopback);
         var sources = new HashSet<IPEndPoint>();
         var seen = new List<double>();
         var done = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -84,7 +84,7 @@ public class RecordingTests
         };
         for (int i = 0; i < 20 && !done.Task.IsCompleted; i++)
         {
-            await RecordingReplayer.ReplayAsync(records, port: port, speed: 10, localInterface: IPAddress.Loopback);
+            await RecordingReplayer.ReplayAsync(records, group: TelemetryReceiver.LoopbackGroup, port: port, speed: 10, localInterface: IPAddress.Loopback);
             await Task.Delay(50);
         }
         await done.Task.WaitAsync(TimeSpan.FromSeconds(5));
@@ -100,7 +100,7 @@ public class RecordingTests
     public async Task PlayInto_Feeds_A_Receiver_Without_The_Network()
     {
         // never started: no socket traffic, only injected datagrams
-        using var receiver = new TelemetryReceiver(port: 41392, localInterface: IPAddress.Loopback);
+        using var receiver = new TelemetryReceiver(group: TelemetryReceiver.LoopbackGroup, port: 41392, localInterface: IPAddress.Loopback);
         var seen = new List<(IPEndPoint, double)>();
         receiver.MotionReceivedFrom += (src, m) => seen.Add((src, m.Timestamp));
         var records = new List<RecordedDatagram>

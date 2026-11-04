@@ -26,7 +26,7 @@ public class ReceiverTests
     public async Task Throwing_Handler_Does_Not_Stop_The_Receive_Loop()
     {
         const int port = 41244;
-        using var receiver = new TelemetryReceiver(port: port,
+        using var receiver = new TelemetryReceiver(group: TelemetryReceiver.LoopbackGroup, port: port,
             localInterface: System.Net.IPAddress.Loopback);
         var faulted = new TaskCompletionSource<Exception>(TaskCreationOptions.RunContinuationsAsynchronously);
         var second = new TaskCompletionSource<double>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -38,7 +38,7 @@ public class ReceiverTests
         };
         receiver.Start();
 
-        using var sender = new TelemetrySender(port: port,
+        using var sender = new TelemetrySender(group: TelemetryReceiver.LoopbackGroup, port: port,
             localInterface: System.Net.IPAddress.Loopback);
         sender.Send(FrameType.Motion, new Ogs.Telemetry.Schema.MotionFrame { Timestamp = 1.0 });
         var ex = await faulted.Task.WaitAsync(TimeSpan.FromSeconds(5));
@@ -53,7 +53,7 @@ public class ReceiverTests
     public async Task DatagramReceived_Reports_Type_And_Length()
     {
         const int port = 41262;
-        using var receiver = new TelemetryReceiver(port: port,
+        using var receiver = new TelemetryReceiver(group: TelemetryReceiver.LoopbackGroup, port: port,
             localInterface: System.Net.IPAddress.Loopback);
         var seen = new TaskCompletionSource<(FrameType, int)>(TaskCreationOptions.RunContinuationsAsynchronously);
         receiver.DatagramReceived += (type, length) => seen.TrySetResult((type, length));
@@ -61,7 +61,7 @@ public class ReceiverTests
 
         var frame = new Ogs.Telemetry.Schema.MotionFrame { Timestamp = 3.0 };
         int expected = Ogs.Telemetry.Wire.CanonicalEncoder.EncodeDatagram(FrameType.Motion, frame).Length;
-        using var sender = new TelemetrySender(port: port,
+        using var sender = new TelemetrySender(group: TelemetryReceiver.LoopbackGroup, port: port,
             localInterface: System.Net.IPAddress.Loopback);
         sender.Send(FrameType.Motion, frame);
         var (type, length) = await seen.Task.WaitAsync(TimeSpan.FromSeconds(5));

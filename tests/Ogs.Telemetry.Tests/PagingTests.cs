@@ -202,7 +202,7 @@ public class PagingTests
             _socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
             _socket.Bind(new IPEndPoint(IPAddress.Any, port));
             _socket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.AddMembership,
-                new MulticastOption(IPAddress.Parse("239.255.17.17"), IPAddress.Loopback));
+                new MulticastOption(IPAddress.Parse(TelemetryReceiver.LoopbackGroup), IPAddress.Loopback));
             _socket.ReceiveTimeout = 300;
         }
 
@@ -235,7 +235,7 @@ public class PagingTests
     {
         const int port = 41260;
         using var capture = new RawCapture(port);
-        using var sender = new TelemetrySender(port: port, localInterface: IPAddress.Loopback);
+        using var sender = new TelemetrySender(group: TelemetryReceiver.LoopbackGroup, port: port, localInterface: IPAddress.Loopback);
         using var pub = new TelemetryPublisher(sender, "paging-publisher", motionHz: 60);
         pub.DeclareObject("sim_car", "Paging test car");
         var handles = new List<ChannelHandle>();
@@ -285,7 +285,7 @@ public class PagingTests
     {
         const int port = 41261;
         using var capture = new RawCapture(port);
-        using var sender = new TelemetrySender(port: port, localInterface: IPAddress.Loopback);
+        using var sender = new TelemetrySender(group: TelemetryReceiver.LoopbackGroup, port: port, localInterface: IPAddress.Loopback);
         using var pub = new TelemetryPublisher(sender, "paging-pacing", motionHz: 10,
                                                discoveryIntervalSeconds: 2.0);
         pub.DeclareObject("sim_car", "first label");
