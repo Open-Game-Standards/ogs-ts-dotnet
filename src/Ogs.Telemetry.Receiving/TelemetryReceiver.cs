@@ -3,6 +3,7 @@ using System;
 using System.Threading.Tasks;
 using System.Threading;
 using System.Net;
+using System.Net.NetworkInformation;
 using System.Net.Sockets;
 
 namespace Ogs.Telemetry
@@ -82,12 +83,13 @@ public sealed class TelemetryReceiver : IDisposable
     /// one of each so IPv6-only senders are found.</param>
     /// <param name="localInterface">NIC to join the group on, as that
     /// interface's local IPv4 address (IPv6: an address whose ScopeId is
-    /// the interface index). Left null, IPv4 joins on the interface of the
-    /// default route and IPv6 on the system's default interface — on a
+    /// the interface index). Left null, it joins on the default route's
+    /// interface (<see cref="TelemetrySender.DefaultRouteAddress"/>,
+    /// <see cref="TelemetrySender.DefaultInterfaceIndexV6"/>) — on a
     /// multi-homed host that can silently join on an interface with no path
     /// to the LAN. Pass the interface you want when the host has more than
-    /// one. An IPv4 receiver also joins on loopback, so it keeps hearing
-    /// senders on this host if their traffic moves there (see
+    /// one. A receiver also joins on loopback, so it keeps hearing senders
+    /// on this host if their traffic moves there (see
     /// <see cref="LoopbackGroup"/>).</param>
     public TelemetryReceiver(string group = "239.255.17.17", int port = 40123,
                      IPAddress? localInterface = null)
@@ -99,12 +101,29 @@ public sealed class TelemetryReceiver : IDisposable
         TryEnableReusePort(_socket);
         _socket.Bind(new IPEndPoint(v6 ? IPAddress.IPv6Any : IPAddress.Any, port));
         if (v6)
-            // link-local group: join on the interface whose index is the
-            // address's ScopeId (0 = the system's default interface)
-            _socket.SetSocketOption(SocketOptionLevel.IPv6, SocketOptionName.AddMembership,
-                new IPv6MulticastOption(address, localInterface?.ScopeId ?? 0));
+            JoinIPv6(address, localInterface);
         else
             JoinIPv4(address, localInterface);
+    }
+
+    void JoinIPv6(IPAddress group, IPAddress? localInterface)
+    {
+        // link-local group: join on the interface whose index is the
+        // address's ScopeId (0 = the system's default interface)
+        long index = localInterface?.ScopeId ?? TelemetrySender.DefaultInterfaceIndexV6() ?? 0;
+        _socket.SetSocketOption(SocketOptionLevel.IPv6, SocketOptionName.AddMembership,
+            new IPv6MulticastOption(group, index));
+        // Best-effort, as for IPv4
+        try
+        {
+            long loopback = NetworkInterface.IPv6LoopbackInterfaceIndex;
+            if (index != loopback)
+                _socket.SetSocketOption(SocketOptionLevel.IPv6, SocketOptionName.AddMembership,
+                    new IPv6MulticastOption(group, loopback));
+        }
+        catch (Exception ex) when (ex is SocketException or NetworkInformationException or PlatformNotSupportedException)
+        {
+        }
     }
 
     void JoinIPv4(IPAddress group, IPAddress? localInterface)
@@ -131,7 +150,7 @@ public sealed class TelemetryReceiver : IDisposable
         // Named rather than left to the OS: once a group's traffic has moved
         // to loopback (see LoopbackGroup), the OS's choice for it is loopback
         // too, and senders on other machines would go unheard.
-        var nic = DefaultRouteAddress();
+        var nic = TelemetrySender.DefaultRouteAddress();
         if (nic is null) return false;
         try
         {
@@ -147,32 +166,12 @@ public sealed class TelemetryReceiver : IDisposable
     void Join(MulticastOption option) =>
         _socket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.AddMembership, option);
 
-    /// <summary>This host's address on its IPv4 default route, or null when
-    /// it has none. Connecting a UDP socket only looks up the route (and
-    /// that of a unicast address, which multicast traffic can't move):
-    /// nothing is sent. 192.0.2.1 is reserved for documentation (RFC 5737).</summary>
-    static IPAddress? DefaultRouteAddress()
-    {
-        try
-        {
-            using var probe = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-            probe.Connect(new IPEndPoint(IPAddress.Parse("192.0.2.1"), 9));
-            var address = ((IPEndPoint)probe.LocalEndPoint!).Address;
-            return address.Equals(IPAddress.Any) || IPAddress.IsLoopback(address) ? null : address;
-        }
-        catch (SocketException)
-        {
-            return null;
-        }
-    }
-
     // SO_REUSEADDR alone lets a second bind to the same port succeed on
     // Windows and Linux, but on macOS/BSD a second multicast listener
     // still won't receive traffic without SO_REUSEPORT too (there's no
     // SocketOptionName for it, so it's a raw setsockopt call). Best-effort:
     // a lone receiver works fine without it, so failures are swallowed.
-    // Skipped on netstandard (no SetRawSocketOption there) — Unity/Godot
-    // vendor this file but only ever run a single in-process receiver.
+    // Compiled out where SetRawSocketOption doesn't exist.
     static void TryEnableReusePort(Socket socket)
     {
 #if NET6_0_OR_GREATER
