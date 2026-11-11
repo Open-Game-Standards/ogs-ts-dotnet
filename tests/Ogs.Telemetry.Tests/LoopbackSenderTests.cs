@@ -94,7 +94,10 @@ public class LoopbackSenderTests
         }
 
         // no multicast on this host's real interface (some CI runners): nothing to test
-        var baseline = await Stream(30);
+        // (macOS runners: sending to the group fails with "No route to host")
+        (int Local, int Remote) baseline;
+        try { baseline = await Stream(30); }
+        catch (SocketException) { return; }
         if (baseline.Remote == 0) return;
         Assert.True(baseline.Local <= 30, $"the receiver got {baseline.Local} copies of 30 frames");
 
