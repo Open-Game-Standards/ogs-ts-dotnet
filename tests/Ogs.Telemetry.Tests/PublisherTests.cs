@@ -1,5 +1,6 @@
 using Ogs.Telemetry;
 using System.Net;
+using System.Net.Sockets;
 using System.Numerics;
 using Capnp;
 using Xunit;
@@ -172,7 +173,10 @@ public class PublisherLoopbackTests
         using var sender = new TelemetrySender(group: TelemetryReceiver.LoopbackGroup, port: 41237, localInterface: IPAddress.Loopback);
         using var pub = new TelemetryPublisher(sender, "lock-test");
         pub.DeclareChannel("engine.rpm", Unit.Rpm);
-        pub.Tick(0.0);
+        // The lock is taken before anything is sent, and this test is not about
+        // the network: some CI hosts have no loopback multicast route.
+        try { pub.Tick(0.0); }
+        catch (SocketException) { }
         Assert.Throws<InvalidOperationException>(
             () => pub.DeclareChannel("late.channel", Unit.Scalar));
     }
