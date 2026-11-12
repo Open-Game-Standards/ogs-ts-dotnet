@@ -24,15 +24,13 @@ public class Ipv6Tests
         using var sender = new TelemetrySender(TelemetryReceiver.LoopbackGroupV6, port, localInterface: loopback);
         for (int i = 0; i < 30 && !got.Task.IsCompleted; i++)
         {
-            try
-            {
-                sender.Send(FrameType.Motion, new Ogs.Telemetry.Schema.MotionFrame { Timestamp = 4.5 });
-            }
-            catch (SocketException ex) when (ex.SocketErrorCode is SocketError.NetworkUnreachable
-                                                 or SocketError.HostUnreachable)
+            sender.Send(FrameType.Motion, new Ogs.Telemetry.Schema.MotionFrame { Timestamp = 4.5 });
+            if (sender.LastSendError?.SocketErrorCode is SocketError.NetworkUnreachable
+                                                         or SocketError.HostUnreachable)
             {
                 // no IPv6 multicast route on this host's loopback (CI runners
-                // on Linux and macOS): nothing to test here
+                // on Linux and macOS): nothing to test here. The sender
+                // reports the failure rather than throwing.
                 return;
             }
             await Task.Delay(50);
