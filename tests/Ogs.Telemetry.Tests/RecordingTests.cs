@@ -113,4 +113,39 @@ public class RecordingTests
         Assert.Equal(new[] { (V4, 1.0), (V6, 2.0) }, seen);
         Assert.Equal(1, receiver.ForeignSkipped);
     }
+
+    [Fact]
+    public async Task While_Live_Is_Paused_Only_Injected_Datagrams_Reach_The_Handlers()
+    {
+        const int port = 41393;
+        using var receiver = new TelemetryReceiver(group: TelemetryReceiver.LoopbackGroup, port: port, localInterface: IPAddress.Loopback);
+        var seen = new List<double>();
+        receiver.MotionReceived += m => { lock (seen) seen.Add(m.Timestamp); };
+        receiver.Start();
+        receiver.LivePaused = true;
+
+        var records = new List<RecordedDatagram> { new(0, V4, Motion(1)) };
+        // the network path: sent to the group, read by the receive loop, dropped
+        for (int i = 0; i < 20 && receiver.LiveDropped == 0; i++)
+        {
+            await RecordingReplayer.ReplayAsync(records, group: TelemetryReceiver.LoopbackGroup, port: port, speed: 10, localInterface: IPAddress.Loopback);
+            await Task.Delay(50);
+        }
+        Assert.True(receiver.LiveDropped > 0);
+        lock (seen) Assert.Empty(seen);
+
+        // an injected one still arrives
+        await RecordingReplayer.PlayIntoAsync(new List<RecordedDatagram> { new(0, V4, Motion(2)) }, receiver);
+        lock (seen) Assert.Equal(new[] { 2.0 }, seen);
+
+        // and live traffic flows again once resumed
+        receiver.LivePaused = false;
+        for (int i = 0; i < 20; i++)
+        {
+            await RecordingReplayer.ReplayAsync(records, group: TelemetryReceiver.LoopbackGroup, port: port, speed: 10, localInterface: IPAddress.Loopback);
+            await Task.Delay(50);
+            lock (seen) if (seen.Contains(1.0)) break;
+        }
+        lock (seen) Assert.Contains(1.0, seen);
+    }
 }

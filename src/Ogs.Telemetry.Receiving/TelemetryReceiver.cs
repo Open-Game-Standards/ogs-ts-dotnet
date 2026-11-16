@@ -60,6 +60,20 @@ public sealed class TelemetryReceiver : IDisposable
     /// completes successfully; hosts may await this.</summary>
     public Task Completion => _loop ?? Task.CompletedTask;
 
+    volatile bool _livePaused;
+
+    /// <summary>While true, datagrams arriving from the network are read and dropped; only
+    /// <see cref="Inject"/> reaches the handlers. A host sets it while it replays a recording into this
+    /// receiver, so the recording and a game that is still streaming do not mix.</summary>
+    public bool LivePaused { get => _livePaused; set => _livePaused = value; }
+
+    /// <summary>Network datagrams dropped while <see cref="LivePaused"/> was set.</summary>
+    public long LiveDropped { get; private set; }
+
+    // The handlers are written for one thread. A replay injects from another thread than the receive loop,
+    // so the two take turns here rather than running together.
+    readonly object _handleGate = new();
+
     public long ForeignSkipped { get; private set; }
     public long DecodeErrors { get; private set; }
 
@@ -206,6 +220,7 @@ public sealed class TelemetryReceiver : IDisposable
                     if (!_socket.Poll(200_000, SelectMode.SelectRead)) continue; // 200 ms
                 }
                 len = _socket.ReceiveFrom(buf, ref from);
+                if (_livePaused) { LiveDropped++; continue; }
                 var src = (IPEndPoint)from;
                 Handle(new IPEndPoint(src.Address, src.Port), buf.AsMemory(0, len));
             }
@@ -224,11 +239,17 @@ public sealed class TelemetryReceiver : IDisposable
     /// <paramref name="source"/>: the same events, counters and decoding as
     /// the receive loop, with no network involved. For replaying a recording
     /// into this receiver's handlers (recording.md) without sending it to
-    /// other receivers. Call from one thread at a time, and not while live
-    /// datagrams are arriving unless the handlers tolerate both.</summary>
+    /// other receivers. Call from one thread at a time. A live datagram and an
+    /// injected one are handled one after the other, never together; set
+    /// <see cref="LivePaused"/> to keep the two streams from mixing.</summary>
     public void Inject(IPEndPoint source, ReadOnlyMemory<byte> datagram) => Handle(source, datagram);
 
     void Handle(IPEndPoint source, ReadOnlyMemory<byte> datagram)
+    {
+        lock (_handleGate) HandleLocked(source, datagram);
+    }
+
+    void HandleLocked(IPEndPoint source, ReadOnlyMemory<byte> datagram)
     {
         if (!Envelope.TryUnwrap(datagram, out var type, out var payload))
         {
