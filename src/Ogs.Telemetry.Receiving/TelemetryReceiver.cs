@@ -244,6 +244,14 @@ public sealed class TelemetryReceiver : IDisposable
     /// <see cref="LivePaused"/> to keep the two streams from mixing.</summary>
     public void Inject(IPEndPoint source, ReadOnlyMemory<byte> datagram) => Handle(source, datagram);
 
+    /// <summary>Run <paramref name="action"/> between datagrams, with no handler running: for a host to
+    /// reset what its handlers keep (the start of another pass of a looped replay) without racing the
+    /// receive loop.</summary>
+    public void Exclusive(Action action)
+    {
+        lock (_handleGate) action();
+    }
+
     void Handle(IPEndPoint source, ReadOnlyMemory<byte> datagram)
     {
         lock (_handleGate) HandleLocked(source, datagram);

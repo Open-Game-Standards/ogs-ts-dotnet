@@ -148,4 +148,13 @@ public class RecordingTests
         }
         lock (seen) Assert.Contains(1.0, seen);
     }
+
+    [Fact]
+    public void Exclusive_Runs_The_Action_Between_Datagrams()
+    {
+        using var receiver = new TelemetryReceiver(group: TelemetryReceiver.LoopbackGroup, port: 41394, localInterface: IPAddress.Loopback);
+        int ran = 0;
+        receiver.Exclusive(() => ran++);
+        Assert.Equal(1, ran);
+    }
 }
