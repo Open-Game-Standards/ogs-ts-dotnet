@@ -43,9 +43,11 @@ namespace Ogs.Telemetry
 /// (Unreal GetVelocity, Unity Rigidbody); otherwise it is derived from
 /// positions: a velocity is taken each time the position changes (or
 /// after <see cref="StillAfterSeconds"/> without a change), over the time
-/// since the previous change, and acceleration comes from the median of
-/// the last <see cref="MedianSamples"/>, so physics steps that don't line
-/// up with the host's ticks don't read as acceleration. Acceleration is
+/// since the previous change, and acceleration is each change in the median of
+/// the last <see cref="MedianSamples"/>, applied on the one tick it
+/// happens, so it adds up to the change in that velocity, and physics
+/// steps that don't line up with the host's ticks don't read as
+/// acceleration. Acceleration is
 /// low-pass filtered (τ = 0.1 s) to tame sampling jitter; angular velocity is NOT filtered (onset cues need its
 /// edges). Teleports are detected as moves the best available velocity
 /// estimate cannot explain (engine-measured velocity when supplied,
@@ -103,8 +105,8 @@ public sealed class BodyDynamicsDeriver
     readonly Vector3[] _recent = new Vector3[MedianSamples];
     readonly float[] _sorted = new float[MedianSamples];
     int _recentCount, _recentNext;
-    Vector3 _lastNewPosition, _median, _heldAccel;
-    double _sinceNewPose, _sinceMedian;
+    Vector3 _lastNewPosition, _median, _positionAccel;
+    double _sinceNewPose;
     bool _hasMedian;
 
 
@@ -168,7 +170,7 @@ public sealed class BodyDynamicsDeriver
                 Reset(position, orientation, time);
                 return;
             }
-            accel = _heldAccel;
+            accel = _positionAccel;
         }
 
         // one-pole low-pass: y += (x − y)·dt/τ, stable for any dt
@@ -189,7 +191,7 @@ public sealed class BodyDynamicsDeriver
     bool UpdateFromPosition(double dt, Vector3 position)
     {
         _sinceNewPose += dt;
-        _sinceMedian += dt;
+        _positionAccel = default;
         Vector3 moved = position - _lastNewPosition;
         if (moved.Length() < SamePositionMetres && _sinceNewPose < StillAfterSeconds)
             return true;
@@ -212,10 +214,9 @@ public sealed class BodyDynamicsDeriver
         if (_recentCount < MedianSamples) return true;
 
         Vector3 median = new(MedianOf(0), MedianOf(1), MedianOf(2));
-        if (_hasMedian) _heldAccel = (median - _median) / (float)_sinceMedian;
+        if (_hasMedian) _positionAccel = (median - _median) / (float)dt;
         _median = median;
         _hasMedian = true;
-        _sinceMedian = 0;
         return true;
     }
 
@@ -238,9 +239,9 @@ public sealed class BodyDynamicsDeriver
     {
         _recentCount = _recentNext = 0;
         _hasMedian = false;
-        _heldAccel = default;
+        _positionAccel = default;
         _lastNewPosition = position;
-        _sinceNewPose = _sinceMedian = 0;
+        _sinceNewPose = 0;
     }
 
     /// <summary>Static value after any reset: gravity reaction in the body

@@ -374,6 +374,31 @@ public class BodyDynamicsDeriverTests
         AssertNear(0, d.SpecificForce.Z, 0.05, "sf.z at rest");
     }
 
+    [Theory]
+    [InlineData(60, 1000, 0)]
+    [InlineData(60, 50, 0)]
+    [InlineData(70, 60, 0)]
+    [InlineData(60, 50, 0.0004)]
+    [InlineData(70, 60, 0.0004)]
+    [InlineData(144, 50, 0.0004)]
+    [InlineData(45, 60, 0.0004)]
+    public void Rest_to_rest_without_velocity_reports_no_net_speed_change(double fps, double physicsHz, double jitter)
+    {
+        const double speed = 7, startAt = 1.5, stopAt = 4.5;
+        var d = new BodyDynamicsDeriver();
+        double net = 0, previous = 0;
+        for (int i = 0; i < (int)(fps * 6); i++)
+        {
+            double t = i / fps + jitter * System.Math.Sin(i * 1.7);
+            double stepped = System.Math.Floor(t * physicsHz) / physicsHz;
+            double travelled = speed * System.Math.Clamp(stepped - startAt, 0, stopAt - startAt);
+            d.Sample(t, new Vector3(0, 0, (float)travelled), Quaternion.Identity);
+            if (i > 0) net += d.SpecificForce.Z * (t - previous);
+            previous = t;
+        }
+        AssertNear(0, net, 0.05 * speed, $"net speed change at {fps} fps / {physicsHz} Hz, jitter {jitter}");
+    }
+
     [Fact]
     public void StoredToC4Rates_maps_stored_components()
     {
