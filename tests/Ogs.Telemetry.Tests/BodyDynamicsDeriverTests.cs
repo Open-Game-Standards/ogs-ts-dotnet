@@ -274,11 +274,104 @@ public class BodyDynamicsDeriverTests
         double t = 0;
         for (int i = 0; i < 30; i++) { d.Sample(t, new Vector3(0, 0, (float)t), Quaternion.Identity); t += Dt; }
         d.Sample(t, new Vector3(0, 0, (float)t + 50f), Quaternion.Identity); t += Dt; // strike 1: jump
-        Assert.True(d.SpecificForce.Z > 1000f, "sf.z strike1: derived spike, not reset");
+        AssertNear(0, d.SpecificForce.Z, 1.0, "sf.z strike1: one jump is filtered out");
         d.Sample(t, new Vector3(0, 0, (float)t), Quaternion.Identity); // back on the normal path
         AssertNear(G, d.SpecificForce.Y, 1e-4, "sf.y after teleport");
         AssertNear(0, d.SpecificForce.Z, 1e-4, "sf.z after teleport");
         AssertNear(0, d.AngularVelocity.Y, 1e-6, "w.y after teleport");
+    }
+
+    static System.Collections.Generic.List<float> SurgeFromSteppedPoses(
+        double fps, double physicsHz, double speed, double acceleration)
+    {
+        var d = new BodyDynamicsDeriver();
+        var surge = new System.Collections.Generic.List<float>();
+        for (int i = 0; i < (int)(fps * 6); i++)
+        {
+            double t = (i + 0.1 * System.Math.Sin(i * 1.7)) / fps;
+            double s = System.Math.Floor(t * physicsHz) / physicsHz;
+            d.Sample(t, new Vector3(0, 0, (float)(speed * s + 0.5 * acceleration * s * s)), Quaternion.Identity);
+            if (t > 1.5) surge.Add(d.SpecificForce.Z);
+        }
+        return surge;
+    }
+
+    static float NearlyWorst(System.Collections.Generic.List<float> surge, double truth)
+    {
+        var errors = surge.ConvertAll(x => (float)System.Math.Abs(x - truth));
+        errors.Sort();
+        return errors[(int)(0.99 * errors.Count)];
+    }
+
+    [Theory]
+    [InlineData(60, 50)]
+    [InlineData(60, 61)]
+    [InlineData(90, 50)]
+    [InlineData(144, 50)]
+    [InlineData(144, 60)]
+    [InlineData(165, 60)]
+    [InlineData(60, 100)]
+    [InlineData(60, 120)]
+    [InlineData(45, 60)]
+    public void Uneven_physics_steps_without_velocity_do_not_spike(double fps, double physicsHz)
+    {
+        float worst = NearlyWorst(SurgeFromSteppedPoses(fps, physicsHz, 30, 0), 0);
+        Assert.True(worst < 100, $"false surge at {fps} fps / {physicsHz} Hz: {worst:F0}");
+    }
+
+    static (float low, int framesToHalfPeak) SuddenHit()
+    {
+        var d = new BodyDynamicsDeriver();
+        var surge = new float[180];
+        double x = 0, v = 40;
+        for (int i = 0; i < surge.Length; i++)
+        {
+            if (i >= 90 && i < 99) v -= 100 * Dt;
+            if (i > 0) x += v * Dt;
+            d.Sample(i * Dt, new Vector3(0, 0, (float)x), Quaternion.Identity);
+            surge[i] = d.SpecificForce.Z;
+        }
+        float low = 0;
+        foreach (var s in surge) low = System.Math.Min(low, s);
+        int at = 90;
+        while (at < surge.Length && surge[at] > low / 2) at++;
+        return (low, at - 90);
+    }
+
+    [Fact]
+    public void A_sudden_hit_survives_the_position_estimate()
+    {
+        var (low, framesToHalfPeak) = SuddenHit();
+        Assert.True(low <= -75, $"peak {low:F0} of -100");
+        Assert.True(framesToHalfPeak <= 4, $"half peak after {framesToHalfPeak} frames");
+    }
+
+    [Fact]
+    public void A_single_position_jump_without_velocity_causes_no_spike()
+    {
+        var d = new BodyDynamicsDeriver();
+        float peak = 0;
+        double offset = 0;
+        for (int i = 0; i < 120; i++)
+        {
+            if (i == 60) offset = 50;
+            double t = i * Dt;
+            d.Sample(t, new Vector3(0, 0, (float)(20 * t + offset)), Quaternion.Identity);
+            if (i > 20) peak = System.Math.Max(peak, System.Math.Abs(d.SpecificForce.Z));
+        }
+        Assert.True(peak < 1, $"peak {peak:F1}");
+    }
+
+    [Fact]
+    public void Coming_to_rest_without_velocity_settles_to_zero()
+    {
+        var d = new BodyDynamicsDeriver();
+        for (int i = 0; i < 180; i++)
+        {
+            double t = i * Dt;
+            d.Sample(t, new Vector3(0, 0, (float)(2 * System.Math.Min(t, 1.0))), Quaternion.Identity);
+        }
+        AssertNear(0, d.SpecificForce.Z, 0.05, "sf.z at rest");
     }
 
     [Fact]

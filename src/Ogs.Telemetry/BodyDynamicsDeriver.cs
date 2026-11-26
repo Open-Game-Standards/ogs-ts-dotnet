@@ -41,8 +41,12 @@ namespace Ogs.Telemetry
 ///
 /// Velocity may be supplied by the caller when the engine measures it
 /// (Unreal GetVelocity, Unity Rigidbody); otherwise it is derived from
-/// position deltas. Acceleration is low-pass filtered (τ = 0.1 s) to tame
-/// sampling jitter; angular velocity is NOT filtered (onset cues need its
+/// positions: a velocity is taken each time the position changes (or
+/// after <see cref="StillAfterSeconds"/> without a change), over the time
+/// since the previous change, and acceleration comes from the median of
+/// the last <see cref="MedianSamples"/>, so physics steps that don't line
+/// up with the host's ticks don't read as acceleration. Acceleration is
+/// low-pass filtered (τ = 0.1 s) to tame sampling jitter; angular velocity is NOT filtered (onset cues need its
 /// edges). Teleports are detected as moves the best available velocity
 /// estimate cannot explain (engine-measured velocity when supplied,
 /// else the previously derived one) — NOT by a fixed per-sample
@@ -79,6 +83,12 @@ public sealed class BodyDynamicsDeriver
     /// change mid-sample). See the class doc for the full rule.</summary>
     public const float TeleportThresholdMetres = 2.5f;
 
+    public const int MedianSamples = 5;
+
+    public const double StillAfterSeconds = 0.1;
+
+    const float SamePositionMetres = 1e-4f;
+
     public Vector3 SpecificForce { get; private set; }
     public Vector3 AngularVelocity { get; private set; }
 
@@ -90,6 +100,12 @@ public sealed class BodyDynamicsDeriver
     bool _hasHistory;
     bool _needsVelocitySeed; // next sample seeds _prevVelocity instead of differencing
     bool _pendingTeleport; // no-velocity path: one strike is accel onset, two is a teleport
+    readonly Vector3[] _recent = new Vector3[MedianSamples];
+    readonly float[] _sorted = new float[MedianSamples];
+    int _recentCount, _recentNext;
+    Vector3 _lastNewPosition, _median, _heldAccel;
+    double _sinceNewPose, _sinceMedian;
+    bool _hasMedian;
 
 
     /// <summary>Feeds one pose sample (standard frame: metres, unit
@@ -113,7 +129,6 @@ public sealed class BodyDynamicsDeriver
         }
 
         Vector3 displacement = position - _prevPosition;
-        Vector3 velocity;
         if (_needsVelocitySeed)
         {
             // the sample after a reset has no previous velocity to
@@ -122,6 +137,8 @@ public sealed class BodyDynamicsDeriver
             // the angular rate, which needs only orientation history
             _needsVelocitySeed = false;
             _prevVelocity = hasVelocity ? engineVelocity : displacement / (float)dt;
+            if (!hasVelocity) Remember(_prevVelocity);
+            _lastNewPosition = position;
             AngularVelocity = AngularVelocityFromDelta(_prevOrientation, orientation, dt);
             SpecificForce = RotateByInverse(orientation, -GravityVector);
             _prevPosition = position;
@@ -129,41 +146,31 @@ public sealed class BodyDynamicsDeriver
             _prevTime = time;
             return;
         }
+        Vector3 accel;
         if (hasVelocity)
         {
             // engine-measured velocity is authoritative: a move it cannot
             // explain (respawn, level change, floating-origin shift) is a
             // teleport, however fast the ship legitimately flies
-            velocity = engineVelocity;
-            float expected = (float)dt * engineVelocity.Length();
-            float inconsistency = (displacement - engineVelocity * (float)dt).Length();
-            if (inconsistency > TeleportThresholdMetres + 0.5f * expected)
+            if (IsUnexplained(displacement, engineVelocity * (float)dt))
             {
                 Reset(position, orientation, time);
                 return;
             }
+            accel = (engineVelocity - _prevVelocity) / (float)dt;
+            _prevVelocity = engineVelocity;
+            ForgetPositionHistory(position);
         }
         else
         {
-            velocity = displacement / (float)dt;
-            Vector3 expected = _prevVelocity * (float)dt;
-            float inconsistency = (displacement - expected).Length();
-            if (inconsistency > TeleportThresholdMetres + 0.5f * expected.Length())
+            if (!UpdateFromPosition(dt, position))
             {
-                // without a velocity measurement one inconsistent sample is
-                // acceleration onset (or the first sample after a reset); a
-                // sustained one is a teleport
-                if (_pendingTeleport)
-                {
-                    Reset(position, orientation, time);
-                    return;
-                }
-                _pendingTeleport = true;
+                Reset(position, orientation, time);
+                return;
             }
-            else _pendingTeleport = false;
+            accel = _heldAccel;
         }
 
-        Vector3 accel = (velocity - _prevVelocity) / (float)dt;
         // one-pole low-pass: y += (x − y)·dt/τ, stable for any dt
         double blend = System.Math.Min(1.0, dt / AccelFilterTau);
         _filteredAccel += (accel - _filteredAccel) * (float)blend;
@@ -172,9 +179,68 @@ public sealed class BodyDynamicsDeriver
         SpecificForce = RotateByInverse(orientation, _filteredAccel - GravityVector);
 
         _prevPosition = position;
-        _prevVelocity = velocity;
         _prevOrientation = orientation;
         _prevTime = time;
+    }
+
+    static bool IsUnexplained(Vector3 moved, Vector3 expected)
+        => (moved - expected).Length() > TeleportThresholdMetres + 0.5f * expected.Length();
+
+    bool UpdateFromPosition(double dt, Vector3 position)
+    {
+        _sinceNewPose += dt;
+        _sinceMedian += dt;
+        Vector3 moved = position - _lastNewPosition;
+        if (moved.Length() < SamePositionMetres && _sinceNewPose < StillAfterSeconds)
+            return true;
+
+        Vector3 usual = _hasMedian ? _median : _prevVelocity;
+        if (IsUnexplained(moved, usual * (float)_sinceNewPose))
+        {
+            // without a velocity measurement one inconsistent sample is
+            // acceleration onset (or one jump, which the median drops);
+            // a sustained one is a teleport
+            if (_pendingTeleport) return false;
+            _pendingTeleport = true;
+        }
+        else _pendingTeleport = false;
+
+        _prevVelocity = moved / (float)_sinceNewPose;
+        Remember(_prevVelocity);
+        _lastNewPosition = position;
+        _sinceNewPose = 0;
+        if (_recentCount < MedianSamples) return true;
+
+        Vector3 median = new(MedianOf(0), MedianOf(1), MedianOf(2));
+        if (_hasMedian) _heldAccel = (median - _median) / (float)_sinceMedian;
+        _median = median;
+        _hasMedian = true;
+        _sinceMedian = 0;
+        return true;
+    }
+
+    void Remember(Vector3 velocity)
+    {
+        _recent[_recentNext] = velocity;
+        _recentNext = (_recentNext + 1) % MedianSamples;
+        if (_recentCount < MedianSamples) _recentCount++;
+    }
+
+    float MedianOf(int axis)
+    {
+        for (int i = 0; i < MedianSamples; i++)
+            _sorted[i] = axis == 0 ? _recent[i].X : axis == 1 ? _recent[i].Y : _recent[i].Z;
+        System.Array.Sort(_sorted);
+        return _sorted[MedianSamples / 2];
+    }
+
+    void ForgetPositionHistory(Vector3 position)
+    {
+        _recentCount = _recentNext = 0;
+        _hasMedian = false;
+        _heldAccel = default;
+        _lastNewPosition = position;
+        _sinceNewPose = _sinceMedian = 0;
     }
 
     /// <summary>Static value after any reset: gravity reaction in the body
@@ -191,6 +257,7 @@ public sealed class BodyDynamicsDeriver
         _hasHistory = true;
         _needsVelocitySeed = true;
         _pendingTeleport = false;
+        ForgetPositionHistory(position);
     }
 
     /// <summary>Body-frame angular velocity (rad/s, C-4 component sense:
