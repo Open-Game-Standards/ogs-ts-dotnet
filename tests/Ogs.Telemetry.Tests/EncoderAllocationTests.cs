@@ -87,17 +87,19 @@ public class EncoderAllocationTests(ITestOutputHelper output)
         return all;
     }
 
+    const double MaxSocketBytesPerSend = 100;
+
     [Fact]
-    public void The_remaining_allocation_is_the_socket_s_own()
+    public void A_send_allocates_no_more_than_the_socket_s_own_share()
     {
-        // Socket.SendTo(EndPoint) serializes the endpoint to a new address object per call
         using var listener = new Listener();
-        using var socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-        var endpoint = new IPEndPoint(IPAddress.Loopback, listener.Port);
-        var datagram = new byte[112];
-        double raw = BytesPerSend(() => socket.SendTo(datagram, 0, datagram.Length, SocketFlags.None, endpoint));
-        output.WriteLine($"bare Socket.SendTo: {raw:0} B/send");
-        Assert.InRange(raw, 50, 100);
+        using var sender = new TelemetrySender("127.0.0.1", listener.Port);
+        foreach (var (name, type, frame) in Frames().Where(f => f.Name is "motion-pose" or "motion-150" or "events-60"))
+        {
+            double perSend = BytesPerSend(() => sender.Send(type, frame));
+            output.WriteLine($"{name,-14} {perSend,7:0} B/send");
+            Assert.True(perSend <= MaxSocketBytesPerSend, $"{name}: {perSend:0} B allocated per send");
+        }
     }
 
     [Fact]
