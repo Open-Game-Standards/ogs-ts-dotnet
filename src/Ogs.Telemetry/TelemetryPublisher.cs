@@ -526,11 +526,11 @@ public sealed class TelemetryPublisher : IDisposable
         SendDiscovery(nowSeconds);
 
         // Schedule by accumulation: advancing from the previous due time (not
-        // from the late send time) keeps the long-run rate exact whatever
-        // the host's frame rate. A sender more than one interval behind
-        // resyncs to now instead of bursting to catch up.
+        // from the send time) keeps the long-run rate exact whatever the
+        // host's frame rate. A sender more than one interval behind resyncs
+        // to now instead of bursting to catch up.
         double due = _lastMotion + _motionInterval;
-        if (nowSeconds >= due - MotionDueTolerance)
+        if (nowSeconds >= due - _motionInterval * MotionEarlyShare)
         {
             foreach (var part in BuildMotion(nowSeconds))
                 _sender.Send(FrameType.Motion, part);
@@ -559,9 +559,7 @@ public sealed class TelemetryPublisher : IDisposable
         }
     }
 
-    // Rounding slack for the motion gate: a host stepping at an exact
-    // multiple of the interval must not lose a frame to float error.
-    const double MotionDueTolerance = 1e-6;
+    const double MotionEarlyShare = 0.25;
 
     // Sends _eventScratch within the datagram budget: one frame when it
     // fits, otherwise the longest fitting prefix repeatedly (cold path).

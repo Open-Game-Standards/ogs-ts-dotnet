@@ -84,6 +84,30 @@ public class PublisherRegressionTests
         Assert.InRange(rate, 29.0, 31.0);
     }
 
+    [Theory]
+    [InlineData(59, 0.002)]
+    [InlineData(59.94, 0.0005)]
+    [InlineData(59.94, 0.002)]
+    [InlineData(62, 0.002)]
+    [InlineData(144, 0.002)]
+    public void Uneven_frames_near_the_motion_rate_are_not_skipped(double fps, double jitter)
+    {
+        using var cap = new Capture();
+        using var pub = new TelemetryPublisher(cap.Sender, "t", motionHz: 60);
+        pub.DeclareObject("o");
+        var rng = new Random(7);
+        const double seconds = 20;
+        int motion = 0;
+        for (int i = 0; i < (int)(seconds * fps); i++)
+        {
+            pub.Tick(100.0 + i / fps + jitter * (2 * rng.NextDouble() - 1));
+            if (i % 100 == 99) motion += Count(cap.Drain(), FrameType.Motion);
+        }
+        motion += Count(cap.Drain(), FrameType.Motion);
+        double achievable = Math.Min(fps, 60);
+        Assert.InRange(motion / seconds, achievable * 0.98, 60.1);
+    }
+
     [Fact]
     public void A_long_stall_resyncs_instead_of_bursting()
     {
