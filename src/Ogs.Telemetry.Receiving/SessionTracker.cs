@@ -30,6 +30,8 @@ public sealed class SessionTracker
     /// Liveness and session end).</summary>
     public static readonly TimeSpan EndAfter = TimeSpan.FromSeconds(10);
 
+    public const int MaxSessions = 64;
+
     public sealed class Session
     {
         internal Session(IPEndPoint source, bool isLocal)
@@ -122,11 +124,18 @@ public sealed class SessionTracker
         get { lock (_gate) return Ordered().ToList(); }
     }
 
-    /// <summary>More than one session is live and nothing is pinned: the
-    /// receiver should say so instead of choosing silently.</summary>
+    /// <summary>More than one session could be meant: several are live with
+    /// nothing pinned, or several match the pin. The receiver should say so
+    /// instead of choosing silently.</summary>
     public bool Ambiguous
     {
-        get { lock (_gate) return _pinned is null && _senders.Count > 1; }
+        get
+        {
+            lock (_gate)
+                return _pinned is { } pin
+                    ? _senders.Values.Count(s => s.Pin.Equals(pin)) > 1
+                    : _senders.Count > 1;
+        }
     }
 
     /// <summary>The session a single-output receiver binds to, or null.</summary>
@@ -137,7 +146,10 @@ public sealed class SessionTracker
             lock (_gate)
             {
                 if (_pinned is { } pin)
-                    return Ordered().FirstOrDefault(s => s.Pin.Equals(pin));
+                {
+                    var matches = Ordered().Where(s => s.Pin.Equals(pin)).Take(2).ToList();
+                    return matches.Count == 1 ? matches[0] : null;
+                }
                 return Ordered().OrderByDescending(s => s.IsLocal).FirstOrDefault();
             }
         }
@@ -162,7 +174,10 @@ public sealed class SessionTracker
             started = !_senders.TryGetValue(source, out session!)
                       || session.SessionStartUnixUs != d.SessionStartUnixUs;
             if (session is null)
+            {
+                if (_senders.Count >= MaxSessions) EndLocked(_senders.Values.OrderBy(s => s.LastFrame).First());
                 _senders[source] = session = new Session(source, _localAddresses.Contains(source.Address));
+            }
             session.GameName = d.GameName ?? "";
             session.InstanceLabel = d.InstanceLabel ?? "";
             session.Host = d.Host ?? "";
@@ -204,11 +219,13 @@ public sealed class SessionTracker
             if (now - s.LastFrame > _endAfterTicks)
                 (ended ??= new List<Session>()).Add(s);
         if (ended is null) return;
-        foreach (var s in ended)
-        {
-            _senders.Remove(s.Source);
-            SessionEnded?.Invoke(s);
-        }
+        foreach (var s in ended) EndLocked(s);
+    }
+
+    void EndLocked(Session s)
+    {
+        _senders.Remove(s.Source);
+        SessionEnded?.Invoke(s);
     }
 
     IEnumerable<Session> Ordered() =>

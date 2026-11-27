@@ -93,9 +93,12 @@ Several senders can share a group ([implementation-udp.md § Senders and
 sessions](https://github.com/Open-Game-Standards/OGS-Telemetry-Standard/blob/main/implementation-udp.md#senders-and-sessions)).
 `TelemetryReceiver`'s `…ReceivedFrom` events carry each frame's source
 address and port, and `SessionTracker` keeps one `DescriptorTables` per
-sender, ends silent senders after 10 s, and offers `Selected` for receivers
-that drive one output: a pinned `SessionPin` (game name, instance label,
-host) when set, otherwise a sender on this host, then the newest session.
+sender, ends silent senders after 10 s, holds at most 64, and offers
+`Selected` for receivers that drive one output: the one session matching a
+pinned `SessionPin` (game name, instance label, host) when set (none while
+two match), otherwise a sender on this host, then the newest session.
+`Selected` is recomputed on every read, so a receiver driving hardware keeps
+its own binding while the session it follows is streaming.
 Senders name their instance with `SetInstance(label, host)`; declared
 channels carry their value type, and `DescriptorTables.Channel.Accepts`
 drops values whose variant differs from it.

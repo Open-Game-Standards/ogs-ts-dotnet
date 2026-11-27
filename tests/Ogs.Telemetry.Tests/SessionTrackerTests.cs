@@ -87,6 +87,35 @@ public class SessionTrackerTests
     }
 
     [Fact]
+    public void A_Pin_Matching_Two_Sessions_Selects_Neither_And_Is_Ambiguous()
+    {
+        var t = Tracker();
+        t.Pinned = new SessionPin("Sim B", "", "sim-pc");
+        t.OnDiscovery(RemoteSim, Discovery("Sim B", 200, host: "sim-pc"));
+        t.OnDiscovery(RemoteSim2, Discovery("Sim B", 300, host: "sim-pc"));
+        Assert.Null(t.Selected);
+        Assert.True(t.Ambiguous);
+    }
+
+    [Fact]
+    public void The_Sender_Table_Is_Bounded_And_Drops_The_Longest_Silent()
+    {
+        var t = Tracker();
+        var ended = new List<string>();
+        t.SessionEnded += s => ended.Add(s.GameName);
+        t.OnDiscovery(LocalSim, Discovery("driving", 100));
+        t.OnDiscovery(RemoteSim, Discovery("silent", 200));
+        _now = 1;
+        t.OnFrame(LocalSim);
+        for (int i = 0; i < SessionTracker.MaxSessions - 1; i++)
+            t.OnDiscovery(new IPEndPoint(RemoteSim2.Address, 20000 + i), Discovery($"flood {i}", 300));
+
+        Assert.Equal(SessionTracker.MaxSessions, t.Sessions.Count);
+        Assert.Equal(new[] { "silent" }, ended);
+        Assert.NotNull(t.Find(LocalSim));
+    }
+
+    [Fact]
     public void New_Session_Start_From_A_Sender_Restarts_It()
     {
         var t = Tracker();
