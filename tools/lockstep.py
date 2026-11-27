@@ -18,6 +18,7 @@ side by side): pass the dirs explicitly otherwise.
 import argparse, math, re, sys
 
 AFFINE = ("degF", "degC")
+NO_UNIT = "(no unit)"
 
 
 def parse_csharp(dotnet_dir):
@@ -60,8 +61,8 @@ def parse_standard(standard_dir):
             affine_ok = True
             continue
         # the standard uses superscript typography (C-3); wire spelling is ^2
-        norm = lambda s: s.replace("²", "^2").replace("³", "^3")
-        rows.add((norm(src), "" if tgt == "(unitless)" else norm(tgt)))
+        norm = lambda s: s.strip("`").replace("²", "^2").replace("³", "^3")
+        rows.add((norm(src), "" if tgt == NO_UNIT else norm(tgt)))
     return rows, affine_ok
 
 
