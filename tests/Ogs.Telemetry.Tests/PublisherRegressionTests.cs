@@ -42,6 +42,19 @@ public class PublisherRegressionTests
             }
         }
 
+        const int TicksBetweenDrains = 50;
+
+        public int MotionFramesSent(TelemetryPublisher publisher, IEnumerable<double> tickTimes)
+        {
+            int motion = 0, ticks = 0;
+            foreach (var time in tickTimes)
+            {
+                publisher.Tick(time);
+                if (++ticks % TicksBetweenDrains == 0) motion += Count(Drain(), FrameType.Motion);
+            }
+            return motion + Count(Drain(), FrameType.Motion);
+        }
+
         public void Dispose() { Sender.Dispose(); _udp.Dispose(); }
     }
 
@@ -66,8 +79,8 @@ public class PublisherRegressionTests
         pub.DeclareObject("o");
         const double seconds = 10;
         int frames = (int)(seconds * fps);
-        for (int i = 0; i <= frames; i++) pub.Tick(100.0 + (double)i / fps);
-        int motion = Count(cap.Drain(), FrameType.Motion);
+        int motion = cap.MotionFramesSent(pub,
+            Enumerable.Range(0, frames + 1).Select(i => 100.0 + (double)i / fps));
         Assert.InRange(motion / seconds, hz * 0.99, hz * 1.01);
     }
 
@@ -78,9 +91,10 @@ public class PublisherRegressionTests
         using var pub = new TelemetryPublisher(cap.Sender, "t", motionHz: 30);
         pub.DeclareObject("o");
         var rng = new Random(7);
+        var times = new List<double>();
         double t = 5;
-        for (; t < 15; t += 1.0 / 60 * (0.8 + 0.4 * rng.NextDouble())) pub.Tick(t);
-        double rate = Count(cap.Drain(), FrameType.Motion) / (t - 5);
+        for (; t < 15; t += 1.0 / 60 * (0.8 + 0.4 * rng.NextDouble())) times.Add(t);
+        double rate = cap.MotionFramesSent(pub, times) / (t - 5);
         Assert.InRange(rate, 29.0, 31.0);
     }
 
@@ -97,13 +111,8 @@ public class PublisherRegressionTests
         pub.DeclareObject("o");
         var rng = new Random(7);
         const double seconds = 20;
-        int motion = 0;
-        for (int i = 0; i < (int)(seconds * fps); i++)
-        {
-            pub.Tick(100.0 + i / fps + jitter * (2 * rng.NextDouble() - 1));
-            if (i % 100 == 99) motion += Count(cap.Drain(), FrameType.Motion);
-        }
-        motion += Count(cap.Drain(), FrameType.Motion);
+        int motion = cap.MotionFramesSent(pub, Enumerable.Range(0, (int)(seconds * fps))
+            .Select(i => 100.0 + i / fps + jitter * (2 * rng.NextDouble() - 1)));
         double achievable = Math.Min(fps, 60);
         Assert.InRange(motion / seconds, achievable * 0.98, 60.1);
     }
